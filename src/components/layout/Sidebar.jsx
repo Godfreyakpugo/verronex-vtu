@@ -30,32 +30,31 @@ function Sidebar({ open, onClose }) {
         />
       )}
 
-      {/* Sidebar panel */}
       <aside
         className={`
           fixed top-0 left-0 h-full w-64 z-50
-          bg-fuchsia-200 backdrop-blur-2xl border-r border-fuchsia-300
-          shadow-[0_20px_50px_rgba(236,72,153,0.10)]
+          bg-white/80 backdrop-blur-2xl
+          border-r border-fuchsia-100
+          shadow-[4px_0_30px_rgba(139,92,246,0.08)]
           transform transition-transform duration-300 ease-in-out
+          flex flex-col overflow-hidden
           ${open ? "translate-x-0" : "-translate-x-full"}
           lg:translate-x-0
         `}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between h-16 px-5 border-b border-fuchsia-100 rounded-xl">
-          <BrandLogo className="text-slate-900" size="sm" />
-
-          {/* Close button — mobile only */}
+        <div className="flex items-center justify-between h-16 px-5 border-b border-fuchsia-100/80 shrink-0">
+          <BrandLogo size="sm" />
           <button
             onClick={onClose}
-            className="lg:hidden p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
+            className="lg:hidden p-1.5 rounded-lg hover:bg-fuchsia-50 text-slate-400 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Nav Links */}
-        <nav className="p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
@@ -63,11 +62,11 @@ function Sidebar({ open, onClose }) {
               onClick={onClose}
               className={({ isActive }) => `
                 flex items-center gap-3 px-3 py-2.5 rounded-xl
-                text-sm font-medium transition-all duration-150
+                text-sm font-semibold transition-all duration-150
                 ${
                   isActive
-                    ? "bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]"
-                    : "text-slate-700 hover:bg-fuchsia-50/80 hover:text-fuchsia-800"
+                    ? "bg-linear-to-r from-fuchsia-600 to-purple-600 text-white shadow-md shadow-fuchsia-500/25"
+                    : "text-slate-500 hover:bg-fuchsia-50 hover:text-fuchsia-700"
                 }
               `}
             >
@@ -76,6 +75,12 @@ function Sidebar({ open, onClose }) {
             </NavLink>
           ))}
         </nav>
+
+        {/* Bottom decorative depth */}
+        <div className="relative h-40 shrink-0 overflow-hidden pointer-events-none">
+          <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-fuchsia-400 rounded-full filter blur-[60px] opacity-20" />
+          <div className="absolute -bottom-10 left-16 w-32 h-32 bg-purple-500 rounded-full filter blur-[60px] opacity-15" />
+        </div>
       </aside>
     </>
   );

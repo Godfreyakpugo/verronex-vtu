@@ -51,9 +51,22 @@ export function AuthProvider({ children }) {
   // ── Shared hydration logic ───────────────────────────────────────────────────
   const hydrateUserData = useCallback(
     async (userId, isNewSignIn = false) => {
-      // Wait for handle_new_user() DB trigger to finish on fresh sign-ups
       if (isNewSignIn) {
-        await new Promise((resolve) => setTimeout(resolve, 600));
+        let profileData = null;
+        let attempts = 0;
+
+        while (!profileData && attempts < 10) {
+          profileData = await fetchProfile(userId);
+          if (!profileData) {
+            attempts += 1;
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          }
+        }
+
+        const walletData = await fetchWallet(userId);
+        setProfile(profileData);
+        setWallet(walletData);
+        return;
       }
 
       const [profileData, walletData] = await Promise.all([
@@ -119,12 +132,14 @@ export function AuthProvider({ children }) {
       email,
       password,
       options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
         data: {
-          full_name: fullName, // stored in auth.users.raw_user_meta_data
-          phone: phone,
+          full_name: fullName,
+          phone,
         },
       },
     });
+
     if (error) throw error;
     return data;
   };
