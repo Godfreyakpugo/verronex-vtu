@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Mail, Lock, User, Phone, ArrowRight } from "lucide-react";
+import { Mail, Lock, User, Phone, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import BrandLogo from "../../components/ui/BrandLogo";
 
@@ -13,7 +13,11 @@ function Field({
   value,
   onChange,
   onKeyDown,
+  showToggle = false,
 }) {
+  const [show, setShow] = useState(false);
+  const inputType = showToggle ? (show ? "text" : "password") : type;
+
   return (
     <div className="space-y-1.5">
       <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
@@ -22,13 +26,26 @@ function Field({
       <div className="relative">
         <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
         <input
-          type={type}
+          type={inputType}
           placeholder={placeholder}
           value={value}
           onChange={onChange}
           onKeyDown={onKeyDown}
-          className="w-full bg-fuchsia-50/50 border border-fuchsia-100 focus:border-fuchsia-400 focus:bg-white pl-10 pr-4 py-3 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/20 transition-all"
+          className="w-full bg-fuchsia-50/50 border border-fuchsia-100 focus:border-fuchsia-400 focus:bg-white pl-10 pr-10 py-3 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/20 transition-all"
         />
+        {showToggle && (
+          <button
+            type="button"
+            onClick={() => setShow((prev) => !prev)}
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-fuchsia-600 transition-colors"
+          >
+            {show ? (
+              <EyeOff className="w-4 h-4" />
+            ) : (
+              <Eye className="w-4 h-4" />
+            )}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -65,7 +82,12 @@ function SignupPage() {
       await signUp({ email, password, fullName, phone });
       setSuccess(true);
     } catch (err) {
-      setError(err.message);
+      setError(
+        err?.message ||
+          err?.error_description ||
+          err?.msg ||
+          "Something went wrong. Please try again.",
+      );
     } finally {
       setBusy(false);
     }
@@ -125,8 +147,8 @@ function SignupPage() {
           </p>
           <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 text-center text-xs text-amber-700">
             <p>
-              <span className="font-semibold">Didn't receive the email?</span>{" "}
-              Check your Spam or Junk folder.
+              <span className="font-semibold">Didn't receive it?</span> Check
+              your Spam or Junk folder.
             </p>
           </div>
           <Link
@@ -172,18 +194,18 @@ function SignupPage() {
         <Field
           label="Password"
           icon={Lock}
-          type="password"
           placeholder="Min. 6 characters"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          showToggle
         />
         <Field
           label="Confirm Password"
           icon={Lock}
-          type="password"
           placeholder="Re-enter password"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
+          showToggle
         />
 
         {error && (

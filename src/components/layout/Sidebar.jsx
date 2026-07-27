@@ -7,22 +7,27 @@ import {
   History,
   Settings,
   X,
+  ShieldCheck,
 } from "lucide-react";
 import BrandLogo from "../ui/BrandLogo";
+import { useAuth } from "../../context/AuthContext";
+import { ROUTES } from "../../routes";
 
 const navItems = [
-  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/buy-data", icon: Wifi, label: "Buy Data" },
-  { to: "/buy-airtime", icon: Phone, label: "Buy Airtime" },
-  { to: "/fund-wallet", icon: Wallet, label: "Fund Wallet" },
-  { to: "/transactions", icon: History, label: "Transactions" },
-  { to: "/settings", icon: Settings, label: "Settings" },
+  { to: ROUTES.DASHBOARD, icon: LayoutDashboard, label: "Dashboard" },
+  { to: ROUTES.BUY_DATA, icon: Wifi, label: "Buy Data" },
+  { to: ROUTES.BUY_AIRTIME, icon: Phone, label: "Buy Airtime" },
+  { to: ROUTES.FUND_WALLET, icon: Wallet, label: "Fund Wallet" },
+  { to: ROUTES.TRANSACTIONS, icon: History, label: "Transactions" },
+  { to: ROUTES.SETTINGS, icon: Settings, label: "Settings" },
 ];
 
 function Sidebar({ open, onClose }) {
+  const { profile } = useAuth();
+  const isAdmin = profile?.is_admin === true;
+
   return (
     <>
-      {/* Mobile backdrop */}
       {open && (
         <div
           className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden"
@@ -65,7 +70,7 @@ function Sidebar({ open, onClose }) {
                 text-sm font-semibold transition-all duration-150
                 ${
                   isActive
-                    ? "bg-linear-to-r from-fuchsia-600 to-purple-600 text-white shadow-md shadow-fuchsia-500/25"
+                    ? "bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white shadow-md shadow-fuchsia-500/25"
                     : "text-slate-500 hover:bg-fuchsia-50 hover:text-fuchsia-700"
                 }
               `}
@@ -74,9 +79,34 @@ function Sidebar({ open, onClose }) {
               {label}
             </NavLink>
           ))}
+
+          {/* Admin — only visible to admin users */}
+          {isAdmin && (
+            <>
+              <div className="pt-3 pb-2">
+                <div className="border-t border-fuchsia-100" />
+              </div>
+              <NavLink
+                to={ROUTES.ADMIN}
+                onClick={onClose}
+                className={({ isActive }) => `
+                  flex items-center gap-3 px-3 py-2.5 rounded-xl
+                  text-sm font-semibold transition-all duration-150
+                  ${
+                    isActive
+                      ? "bg-gradient-to-r from-indigo-900 via-purple-800 to-fuchsia-700 text-white shadow-md shadow-purple-900/25"
+                      : "bg-gradient-to-r from-indigo-900/8 via-purple-800/8 to-fuchsia-700/8 text-purple-700 border border-purple-200/50 hover:border-purple-300/70"
+                  }
+                `}
+              >
+                <ShieldCheck className="w-4 h-4 shrink-0" />
+                Admin Panel
+              </NavLink>
+            </>
+          )}
         </nav>
 
-        {/* Bottom decorative depth */}
+        {/* Decorative depth */}
         <div className="relative h-40 shrink-0 overflow-hidden pointer-events-none">
           <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-fuchsia-400 rounded-full filter blur-[60px] opacity-20" />
           <div className="absolute -bottom-10 left-16 w-32 h-32 bg-purple-500 rounded-full filter blur-[60px] opacity-15" />

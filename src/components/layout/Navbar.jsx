@@ -67,7 +67,7 @@ function Navbar({ onMenuClick }) {
 
         {/* Avatar + sign out */}
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-fuchsia-600 to-purple-600 shadow-md shadow-fuchsia-500/30 flex items-center justify-center text-white text-sm font-black">
+          <div className="w-9 h-9 rounded-full bg-linear-to-br from-fuchsia-600 to-purple-600 shadow-md shadow-fuchsia-500/30 flex items-center justify-center text-white text-sm font-black">
             {initials}
           </div>
           <button

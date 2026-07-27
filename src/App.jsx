@@ -4,24 +4,35 @@ import Shell from "./components/layout/Shell";
 import Dashboard from "./pages/Dashboard";
 import LoginPage from "./pages/auth/LoginPage";
 import SignupPage from "./pages/auth/SignupPage";
-import AuthCallback from "./pages/auth/AuthCallback";
+import AdminPanel from "./pages/admin/AdminPanel";
 
-// ── Protected Route Guard ─────────────────────────────────────
+function FullScreenLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.12),transparent_50%),linear-gradient(135deg,#eef2ff_0%,#f5f3ff_30%,#fdf4ff_60%,#ffffff_100%)]">
+      <div className="w-6 h-6 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
 
-  if (loading)
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="w-6 h-6 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+  if (loading) return <FullScreenLoader />;
 
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }
 
-// ── App Router ────────────────────────────────────────────────
+function AdminRoute({ children }) {
+  const { user, profile, loading } = useAuth();
+
+  if (loading) return <FullScreenLoader />;
+
+  if (!user) return <Navigate to="/login" replace />;
+  if (!profile?.is_admin) return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -29,7 +40,6 @@ export default function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route
           path="/dashboard"
           element={
@@ -38,6 +48,16 @@ export default function App() {
                 <Dashboard />
               </Shell>
             </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <Shell>
+                <AdminPanel />
+              </Shell>
+            </AdminRoute>
           }
         />
       </Routes>
