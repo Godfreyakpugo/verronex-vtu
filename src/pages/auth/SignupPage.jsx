@@ -55,6 +55,7 @@ function SignupPage() {
   const { signUp } = useAuth();
 
   const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -65,8 +66,21 @@ function SignupPage() {
 
   const handleSignUp = async () => {
     setError(null);
-    if (!fullName || !phone || !email || !password || !confirmPassword) {
+    if (
+      !fullName ||
+      !username ||
+      !phone ||
+      !email ||
+      !password ||
+      !confirmPassword
+    ) {
       setError("Please fill in all fields.");
+      return;
+    }
+    if (!/^[a-z0-9_]{3,20}$/.test(username)) {
+      setError(
+        "Username must be 3-20 characters and contain only lowercase letters, numbers and underscores.",
+      );
       return;
     }
     if (password !== confirmPassword) {
@@ -79,7 +93,13 @@ function SignupPage() {
     }
     setBusy(true);
     try {
-      await signUp({ email, password, fullName, phone });
+      await signUp({
+        email,
+        password,
+        fullName,
+        username,
+        phone,
+      });
       setSuccess(true);
     } catch (err) {
       setError(
@@ -174,6 +194,15 @@ function SignupPage() {
           placeholder="e.g. Godfrey Akpugo"
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
+        />
+        <Field
+          label="Username"
+          icon={User}
+          placeholder="e.g. godfrey"
+          value={username}
+          onChange={(e) =>
+            setUsername(e.target.value.toLowerCase().replace(/\s/g, ""))
+          }
         />
         <Field
           label="Phone Number"

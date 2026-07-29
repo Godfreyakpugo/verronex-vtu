@@ -1,10 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import Shell from "./components/layout/Shell";
-import Dashboard from "./pages/Dashboard";
+import Dashboard from "./pages/dashboard/Dashboard";
 import LoginPage from "./pages/auth/LoginPage";
 import SignupPage from "./pages/auth/SignupPage";
 import AdminPanel from "./pages/admin/AdminPanel";
+import "./index.css";
+import FundWallet from "./pages/dashboard/FundWallet";
 
 function FullScreenLoader() {
   return (
@@ -46,6 +48,16 @@ export default function App() {
             <ProtectedRoute>
               <Shell>
                 <Dashboard />
+              </Shell>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/fund-wallet"
+          element={
+            <ProtectedRoute>
+              <Shell>
+                <FundWallet />
               </Shell>
             </ProtectedRoute>
           }

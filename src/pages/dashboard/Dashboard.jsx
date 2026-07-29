@@ -1,6 +1,7 @@
 import { Wifi, Phone, Plus, ArrowUpRight } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
-import GlassCard from "../components/ui/GlassCard";
+import { Link } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import GlassCard from "../../components/ui/GlassCard";
 
 const quickActions = [
   {
@@ -61,10 +62,13 @@ function Dashboard() {
             </span>
           </div>
 
-          <button className="shrink-0 flex items-center gap-2 bg-white hover:bg-slate-50 active:scale-95 text-purple-700 text-sm font-bold px-5 py-3 rounded-2xl shadow-lg transition-all">
+          <Link
+            to="/fund-wallet"
+            className="shrink-0 flex items-center gap-2 bg-white hover:bg-slate-50 active:scale-95 text-purple-700 text-sm font-bold px-5 py-3 rounded-2xl shadow-lg transition-all"
+          >
             <Plus className="w-4 h-4 stroke-[3]" />
             Fund Wallet
-          </button>
+          </Link>
         </div>
       </div>
 

@@ -127,7 +127,7 @@ export function AuthProvider({ children }) {
 
   // ─── 3. Auth Actions ─────────────────────────────────────────────────────────
 
-  const signUp = async ({ email, password, fullName, phone }) => {
+  const signUp = async ({ email, password, fullName, username, phone }) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -135,6 +135,7 @@ export function AuthProvider({ children }) {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
         data: {
           full_name: fullName,
+          username,
           phone,
         },
       },
