@@ -204,6 +204,7 @@ function SignupPage() {
             setUsername(e.target.value.toLowerCase().replace(/\s/g, ""))
           }
         />
+
         <Field
           label="Phone Number"
           icon={Phone}
