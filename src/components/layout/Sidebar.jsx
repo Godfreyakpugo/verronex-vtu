@@ -70,7 +70,7 @@ function Sidebar({ open, onClose }) {
                 text-sm font-semibold transition-all duration-150
                 ${
                   isActive
-                    ? "bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white shadow-md shadow-fuchsia-500/25"
+                    ? "bg-linear-to-r from-fuchsia-600 to-purple-600 text-white shadow-md shadow-fuchsia-500/25"
                     : "text-slate-500 hover:bg-fuchsia-50 hover:text-fuchsia-700"
                 }
               `}
@@ -94,8 +94,8 @@ function Sidebar({ open, onClose }) {
                   text-sm font-semibold transition-all duration-150
                   ${
                     isActive
-                      ? "bg-gradient-to-r from-indigo-900 via-purple-800 to-fuchsia-700 text-white shadow-md shadow-purple-900/25"
-                      : "bg-gradient-to-r from-indigo-900/8 via-purple-800/8 to-fuchsia-700/8 text-purple-700 border border-purple-200/50 hover:border-purple-300/70"
+                      ? "bg-linear-to-r from-indigo-900 via-purple-800 to-fuchsia-700 text-white shadow-md shadow-purple-900/25"
+                      : "bg-linear-to-r from-indigo-900/8 via-purple-800/8 to-fuchsia-700/8 text-purple-700 border border-purple-200/50 hover:border-purple-300/70"
                   }
                 `}
               >

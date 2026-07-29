@@ -124,7 +124,7 @@ function SignupPage() {
   );
 
   const darkHeader = (title, sub) => (
-    <div className="bg-gradient-to-br from-indigo-900 via-purple-800 to-fuchsia-700 px-8 pt-10 pb-12 relative overflow-hidden">
+    <div className="bg-linear-to-br from-indigo-900 via-purple-800 to-fuchsia-700 px-8 pt-10 pb-12 relative overflow-hidden">
       <div className="absolute -top-12 -right-12 w-48 h-48 bg-fuchsia-500 rounded-full filter blur-[70px] opacity-40 mix-blend-screen pointer-events-none" />
       <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-indigo-400 rounded-full filter blur-[50px] opacity-30 mix-blend-screen pointer-events-none" />
       <div className="relative z-10">
@@ -145,7 +145,7 @@ function SignupPage() {
   if (success) {
     return pageWrapper(
       <>
-        <div className="bg-gradient-to-br from-indigo-900 via-purple-800 to-fuchsia-700 px-8 py-10 relative overflow-hidden text-center">
+        <div className="bg-linear-to-br from-indigo-900 via-purple-800 to-fuchsia-700 px-8 py-10 relative overflow-hidden text-center">
           <div className="absolute -top-12 -right-12 w-48 h-48 bg-fuchsia-500 rounded-full filter blur-[70px] opacity-40 mix-blend-screen pointer-events-none" />
           <div className="relative z-10">
             <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 backdrop-blur flex items-center justify-center mx-auto mb-4">
@@ -173,7 +173,7 @@ function SignupPage() {
           </div>
           <Link
             to="/login"
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-700 hover:to-purple-700 active:scale-95 text-white text-sm font-bold px-6 py-3 rounded-xl shadow-lg shadow-fuchsia-500/30 transition-all"
+            className="inline-flex items-center gap-2 bg-linear-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-700 hover:to-purple-700 active:scale-95 text-white text-sm font-bold px-6 py-3 rounded-xl shadow-lg shadow-fuchsia-500/30 transition-all"
           >
             Go to Sign In <ArrowRight className="w-4 h-4" />
           </Link>
@@ -247,7 +247,7 @@ function SignupPage() {
         <button
           onClick={handleSignUp}
           disabled={busy}
-          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-700 hover:to-purple-700 active:scale-95 text-white text-sm font-bold py-3.5 rounded-xl shadow-lg shadow-fuchsia-500/30 transition-all disabled:opacity-50 mt-2"
+          className="w-full flex items-center justify-center gap-2 bg-linear-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-700 hover:to-purple-700 active:scale-95 text-white text-sm font-bold py-3.5 rounded-xl shadow-lg shadow-fuchsia-500/30 transition-all disabled:opacity-50 mt-2"
         >
           {busy ? (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

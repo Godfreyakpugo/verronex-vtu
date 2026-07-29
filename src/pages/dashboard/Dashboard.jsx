@@ -10,7 +10,7 @@ const quickActions = [
     sub: "SME & Corporate bundles",
     iconColor: "text-white",
     iconBg:
-      "bg-gradient-to-br from-fuchsia-600 to-purple-600 shadow-md shadow-fuchsia-500/30 border-0",
+      "bg-linear-to-br from-fuchsia-600 to-purple-600 shadow-md shadow-fuchsia-500/30 border-0",
   },
   {
     icon: Phone,
@@ -18,7 +18,7 @@ const quickActions = [
     sub: "All networks supported",
     iconColor: "text-white",
     iconBg:
-      "bg-gradient-to-br from-fuchsia-600 to-purple-600 shadow-md shadow-fuchsia-500/30 border-0",
+      "bg-linear-to-br from-fuchsia-600 to-purple-600 shadow-md shadow-fuchsia-500/30 border-0",
   },
 ];
 
@@ -40,7 +40,7 @@ function Dashboard() {
       </div>
 
       {/* Wallet Card - Made Vivid */}
-      <div className="p-7 rounded-3xl bg-gradient-to-br from-indigo-900 via-purple-800 to-fuchsia-700 shadow-xl shadow-purple-900/20 relative overflow-hidden">
+      <div className="p-7 rounded-3xl bg-linear-to-br from-indigo-900 via-purple-800 to-fuchsia-700 shadow-xl shadow-purple-900/20 relative overflow-hidden">
         {/* Decorative background glow */}
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-fuchsia-500 rounded-full mix-blend-screen filter blur-[80px] opacity-60"></div>
 
@@ -107,7 +107,7 @@ function Dashboard() {
         </div>
 
         <GlassCard className="p-12 text-center border-slate-200/60">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-slate-100 to-slate-200 flex items-center justify-center mx-auto mb-4 shadow-inner">
+          <div className="w-14 h-14 rounded-2xl bg-linear-to-tr from-slate-100 to-slate-200 flex items-center justify-center mx-auto mb-4 shadow-inner">
             <ArrowUpRight className="w-6 h-6 text-slate-400 stroke-[2.5]" />
           </div>
           <p className="text-base font-bold text-slate-700">
