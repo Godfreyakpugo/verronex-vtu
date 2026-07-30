@@ -73,7 +73,7 @@ Thank you.`;
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div className="rounded-3xl bg-linear-to-br from-indigo-900 via-purple-800 to-fuchsia-700 text-white p-8 shadow-xl">
+      <div className="rounded-3xl bg-[linear-gradient(135deg,#312e81,#7c3aed,#d946ef)] text-white p-8 shadow-xl">
         <h1 className="text-3xl font-black">Fund Wallet</h1>
 
         <p className="mt-2 text-purple-200">
@@ -159,7 +159,7 @@ Thank you.`;
       <button
         onClick={handleFundingRequest}
         disabled={loading}
-        className="w-full rounded-2xl bg-linear-to-r from-fuchsia-600 to-purple-600 py-4 text-white font-bold flex items-center justify-center gap-3 shadow-lg shadow-fuchsia-500/30 hover:from-fuchsia-700 hover:to-purple-700 disabled:opacity-50"
+        className="w-full rounded-2xl bg-[linear-gradient(135deg,#d946ef,#7c3aed)] py-4 text-white font-bold flex items-center justify-center gap-3 shadow-lg shadow-fuchsia-500/30 hover:brightness-110 disabled:opacity-50"
       >
         {loading ? (
           <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
