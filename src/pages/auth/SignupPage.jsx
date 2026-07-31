@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, User, Phone, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import BrandLogo from "../../components/ui/BrandLogo";
@@ -52,6 +52,7 @@ function Field({
 }
 
 function SignupPage() {
+  const navigate = useNavigate();
   const { signUp } = useAuth();
 
   const [fullName, setFullName] = useState("");
@@ -100,7 +101,7 @@ function SignupPage() {
         username,
         phone,
       });
-      setSuccess(true);
+      navigate("/login");
     } catch (err) {
       console.error("Signup failed:", err);
 
