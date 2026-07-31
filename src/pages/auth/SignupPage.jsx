@@ -102,11 +102,14 @@ function SignupPage() {
       });
       setSuccess(true);
     } catch (err) {
+      console.error("Signup failed:", err);
+
       setError(
         err?.message ||
           err?.error_description ||
-          err?.msg ||
-          "Something went wrong. Please try again.",
+          err?.error?.message ||
+          JSON.stringify(err, null, 2) ||
+          "Signup failed.",
       );
     } finally {
       setBusy(false);
