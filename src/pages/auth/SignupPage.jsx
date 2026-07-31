@@ -101,7 +101,7 @@ function SignupPage() {
         username,
         phone,
       });
-      navigate("/login");
+      setSuccess(true);
     } catch (err) {
       console.error("Signup failed:", err);
 
