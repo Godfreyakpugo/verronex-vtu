@@ -128,7 +128,7 @@ export function AuthProvider({ children }) {
   // ─── 3. Auth Actions ─────────────────────────────────────────────────────────
 
   const signUp = async ({ email, password, fullName, username, phone }) => {
-    const { data, error } = await supabase.auth.signUp({
+    const result = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -141,8 +141,14 @@ export function AuthProvider({ children }) {
       },
     });
 
-    if (error) throw error;
-    return data;
+    console.log("SIGNUP RESULT:", result);
+
+    if (result.error) {
+      console.error("SUPABASE SIGNUP ERROR:", result.error);
+      throw result.error;
+    }
+
+    return result.data;
   };
 
   const signIn = async ({ email, password }) => {
