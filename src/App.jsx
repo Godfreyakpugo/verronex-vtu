@@ -4,6 +4,7 @@ import Shell from "./components/layout/Shell";
 import Dashboard from "./pages/dashboard/Dashboard";
 import LoginPage from "./pages/auth/LoginPage";
 import SignupPage from "./pages/auth/SignupPage";
+import AuthCallback from "./pages/auth/AuthCallback";
 import AdminPanel from "./pages/admin/AdminPanel";
 import "./index.css";
 import FundWallet from "./pages/dashboard/FundWallet";
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route
           path="/dashboard"
           element={
