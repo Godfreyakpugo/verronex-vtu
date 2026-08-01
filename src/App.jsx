@@ -5,7 +5,7 @@ import Dashboard from "./pages/dashboard/Dashboard";
 import LoginPage from "./pages/auth/LoginPage";
 import SignupPage from "./pages/auth/SignupPage";
 import AuthCallback from "./pages/auth/AuthCallback";
-import AdminPanel from "./pages/admin/AdminPanel";
+import WalletManagement from "./pages/admin/wallet/WalletManagement";
 import "./index.css";
 import FundWallet from "./pages/dashboard/FundWallet";
 
@@ -69,7 +69,7 @@ export default function App() {
           element={
             <AdminRoute>
               <Shell>
-                <AdminPanel />
+                <WalletManagement />
               </Shell>
             </AdminRoute>
           }
