@@ -75,6 +75,8 @@ function WalletManagement() {
   };
 
   const handleSearch = (value) => {
+    setSearchTerm(value);
+
     clearTimeout(debounceRef.current);
 
     if (targetUser && value !== searchTerm) {
@@ -124,7 +126,6 @@ function WalletManagement() {
     });
 
   const searchUsers = async (value) => {
-    setSearchTerm(value);
     setSearchError(null);
 
     if (value.trim().length < 2) {
@@ -140,26 +141,16 @@ function WalletManagement() {
     setSearching(true);
 
     try {
-      let response = await supabase.rpc("search_users", {
+      const { data, error } = await supabase.rpc("search_users", {
         search_term: value.trim(),
-        limit: 10,
       });
-
-      if (
-        response.error &&
-        /limit|argument|parameter/i.test(response.error.message)
-      ) {
-        response = await supabase.rpc("search_users", {
-          search_term: value.trim(),
-        });
-      }
 
       // Ignore stale responses
       if (requestId !== latestSearch.current) return;
 
-      if (response.error) throw response.error;
+      if (error) throw error;
 
-      setSearchResults(normalizeSearchResults(response.data || []));
+      setSearchResults(normalizeSearchResults(data || []));
       setShowResults(true);
     } catch (err) {
       if (requestId !== latestSearch.current) return;

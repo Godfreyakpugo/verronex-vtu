@@ -51,48 +51,46 @@ function UserSearch({
             className="w-full bg-fuchsia-50/50 border border-fuchsia-100 focus:border-fuchsia-400 focus:bg-white pl-10 pr-10 py-3 rounded-xl text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           />
 
-          {searchTerm.trim() !== "" &&
-            showResults &&
-            (searchResults.length > 0 || searching) && (
-              <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-xl border border-fuchsia-100 max-h-80 overflow-y-auto z-50">
-                {searching && (
-                  <div className="flex items-center justify-center gap-2 py-6 text-sm text-slate-500">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Searching...
+          {searchTerm.trim() !== "" && showResults && (
+            <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-xl border border-fuchsia-100 max-h-80 overflow-y-auto z-50">
+              {searching && (
+                <div className="flex items-center justify-center gap-2 py-6 text-sm text-slate-500">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Searching...
+                </div>
+              )}
+
+              {!searching &&
+                searchResults.map((user) => (
+                  <button
+                    key={user.id}
+                    onClick={() => onSelectUser?.(user)}
+                    className="w-full text-left p-4 hover:bg-fuchsia-50 transition"
+                  >
+                    <div className="font-bold text-slate-800">
+                      {user.full_name}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      @{user.username || "no-username"}
+                    </div>
+                    <div className="text-xs text-slate-400">{user.email}</div>
+                    <div className="text-xs text-slate-400">{user.phone}</div>
+                    <div className="mt-2 text-sm font-semibold text-fuchsia-600">
+                      ₦{formatMoney(user.balance)}
+                    </div>
+                  </button>
+                ))}
+
+              {!searching &&
+                searchTerm.trim() !== "" &&
+                searchResults.length === 0 &&
+                !searchError && (
+                  <div className="py-6 text-center text-sm text-slate-500">
+                    No matching users found.
                   </div>
                 )}
-
-                {!searching &&
-                  searchResults.map((user) => (
-                    <button
-                      key={user.id}
-                      onClick={() => onSelectUser?.(user)}
-                      className="w-full text-left p-4 hover:bg-fuchsia-50 transition"
-                    >
-                      <div className="font-bold text-slate-800">
-                        {user.full_name}
-                      </div>
-                      <div className="text-xs text-slate-500">
-                        @{user.username || "no-username"}
-                      </div>
-                      <div className="text-xs text-slate-400">{user.email}</div>
-                      <div className="text-xs text-slate-400">{user.phone}</div>
-                      <div className="mt-2 text-sm font-semibold text-fuchsia-600">
-                        ₦{formatMoney(user.balance)}
-                      </div>
-                    </button>
-                  ))}
-
-                {!searching &&
-                  searchTerm.trim() !== "" &&
-                  searchResults.length === 0 &&
-                  !searchError && (
-                    <div className="py-6 text-center text-sm text-slate-500">
-                      No matching users found.
-                    </div>
-                  )}
-              </div>
-            )}
+            </div>
+          )}
         </div>
       </div>
       {searchError && (

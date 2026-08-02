@@ -5,9 +5,12 @@ import Dashboard from "./pages/dashboard/Dashboard";
 import LoginPage from "./pages/auth/LoginPage";
 import SignupPage from "./pages/auth/SignupPage";
 import AuthCallback from "./pages/auth/AuthCallback";
-import WalletManagement from "./pages/admin/wallet/WalletManagement";
-import "./index.css";
 import FundWallet from "./pages/dashboard/FundWallet";
+import "./index.css";
+
+// ✅ OUR NEW DOMAIN-DRIVEN IMPORTS
+import WalletManagement from "./pages/admin/wallet/WalletManagement";
+import UserManagement from "./pages/admin/users/UserManagement";
 
 function FullScreenLoader() {
   return (
@@ -19,18 +22,14 @@ function FullScreenLoader() {
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
-
   if (loading) return <FullScreenLoader />;
-
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }
 
 function AdminRoute({ children }) {
   const { user, profile, loading } = useAuth();
-
   if (loading) return <FullScreenLoader />;
-
   if (!user) return <Navigate to="/login" replace />;
   if (!profile?.is_admin) return <Navigate to="/dashboard" replace />;
   return children;
@@ -44,6 +43,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+
         <Route
           path="/dashboard"
           element={
@@ -64,12 +64,30 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* ✅ THE MISSING ROUTES: Properly registered now */}
         <Route
           path="/admin"
+          element={<Navigate to="/admin/wallet" replace />}
+        />
+
+        <Route
+          path="/admin/wallet"
           element={
             <AdminRoute>
               <Shell>
                 <WalletManagement />
+              </Shell>
+            </AdminRoute>
+          }
+        />
+
+        <Route
+          path="/admin/users"
+          element={
+            <AdminRoute>
+              <Shell>
+                <UserManagement />
               </Shell>
             </AdminRoute>
           }
