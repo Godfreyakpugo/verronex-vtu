@@ -76,11 +76,12 @@ export default function UserManagement() {
       </GlassCard>
 
       <GlassCard className="overflow-hidden">
-        <div className="grid grid-cols-5 bg-slate-100 px-6 py-4 text-xs uppercase font-bold tracking-wider text-slate-500">
+        {/* Table Headers */}
+        <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr_auto] md:grid-cols-5 gap-2 md:gap-4 bg-slate-100 px-4 md:px-6 py-4 text-[9px] md:text-xs uppercase font-bold tracking-wider text-slate-500">
           <div>User</div>
           <div>Role / Plan</div>
-          <div>Wallet Balance</div>
-          <div>Date Joined</div>
+          <div>Balance</div>
+          <div>Joined</div>
           <div></div>
         </div>
 

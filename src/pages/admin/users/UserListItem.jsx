@@ -53,18 +53,21 @@ export default function UserListItem({
     <div className="border-t border-fuchsia-50">
       <button
         onClick={onToggleExpand}
-        className="w-full grid grid-cols-5 items-center px-6 py-5 hover:bg-fuchsia-50 transition text-left"
+        className="w-full grid grid-cols-[1.5fr_1fr_1fr_1fr_auto] md:grid-cols-5 gap-2 md:gap-4 items-center px-4 md:px-6 py-4 hover:bg-fuchsia-50 transition text-left"
       >
-        <div>
-          <p className="font-bold text-slate-800">
+        {/* min-w-0 is the secret sauce that allows truncate to work inside CSS grid */}
+        <div className="min-w-0 pr-2">
+          <p className="font-bold text-slate-800 text-xs md:text-sm truncate">
             {user.full_name || "Unknown User"}
           </p>
-          <p className="text-xs text-slate-500">{user.email}</p>
+          <p className="text-[10px] md:text-xs text-slate-500 truncate">
+            {user.email}
+          </p>
         </div>
 
-        <div>
+        <div className="min-w-0">
           <span
-            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold ${
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 md:px-3 md:py-1 text-[10px] md:text-xs font-bold whitespace-nowrap ${
               role === "Admin"
                 ? "bg-purple-100 text-purple-700"
                 : role === "Agent"
@@ -73,26 +76,30 @@ export default function UserListItem({
             }`}
           >
             {role === "Admin" ? (
-              <ShieldCheck className="w-4 h-4" />
+              <ShieldCheck className="w-3 h-3 md:w-4 md:h-4 shrink-0" />
             ) : role === "Agent" ? (
-              <UserCheck className="w-4 h-4" />
+              <UserCheck className="w-3 h-3 md:w-4 md:h-4 shrink-0" />
             ) : (
-              <User className="w-4 h-4" />
+              <User className="w-3 h-3 md:w-4 md:h-4 shrink-0" />
             )}
-            {role}
+            <span className="truncate">{role}</span>
           </span>
         </div>
 
-        <div className="font-bold text-fuchsia-600">
+        <div className="font-bold text-fuchsia-600 text-[11px] md:text-sm whitespace-nowrap">
           ₦{formatMoney(user.wallet_balance || user.balance || 0)}
         </div>
 
-        <div className="text-sm text-slate-500">
+        <div className="text-[10px] md:text-sm text-slate-500 whitespace-nowrap">
           {new Date(user.created_at).toLocaleDateString()}
         </div>
 
         <div className="flex justify-end text-slate-400">
-          {expanded ? <ChevronUp /> : <ChevronDown />}
+          {expanded ? (
+            <ChevronUp className="w-4 h-4 md:w-5 md:h-5" />
+          ) : (
+            <ChevronDown className="w-4 h-4 md:w-5 md:h-5" />
+          )}
         </div>
       </button>
 
