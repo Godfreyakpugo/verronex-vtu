@@ -11,6 +11,7 @@ import "./index.css";
 // ✅ OUR NEW DOMAIN-DRIVEN IMPORTS
 import WalletManagement from "./pages/admin/wallet/WalletManagement";
 import UserManagement from "./pages/admin/users/UserManagement";
+import ProductsDashboard from "./pages/admin/products/ProductsDashboard";
 
 function FullScreenLoader() {
   return (
@@ -88,6 +89,17 @@ export default function App() {
             <AdminRoute>
               <Shell>
                 <UserManagement />
+              </Shell>
+            </AdminRoute>
+          }
+        />
+
+        <Route
+          path="/admin/products"
+          element={
+            <AdminRoute>
+              <Shell>
+                <ProductsDashboard />
               </Shell>
             </AdminRoute>
           }

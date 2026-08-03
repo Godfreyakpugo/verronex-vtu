@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 import supabase from "../../../lib/supabaseClient";
 import UserSearch from "./UserSearch";
@@ -30,6 +31,7 @@ function WalletManagement() {
   const latestSearch = useRef(0);
   const searchRef = useRef(null);
   const debounceRef = useRef(null);
+  const location = useLocation();
 
   const fetchRecentActions = async () => {
     try {
@@ -53,6 +55,14 @@ function WalletManagement() {
   useEffect(() => {
     fetchRecentActions();
   }, []);
+
+  // Catch incoming user from User Management page
+  useEffect(() => {
+    if (location.state?.prefilledUser) {
+      selectUser(location.state.prefilledUser);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Click outside closes search dropdown
   useEffect(() => {

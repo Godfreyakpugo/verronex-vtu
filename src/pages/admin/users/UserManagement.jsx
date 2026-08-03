@@ -12,12 +12,11 @@ export default function UserManagement() {
   const [filter, setFilter] = useState("all");
   const [expandedId, setExpandedId] = useState(null);
 
+  // REAL SUPABASE FETCH: Using your RPC to get profiles + wallets
   const fetchUsers = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false });
+
+    const { data, error } = await supabase.rpc("admin_get_users");
 
     if (error) {
       console.error("Error fetching users:", error);
@@ -76,7 +75,7 @@ export default function UserManagement() {
       </GlassCard>
 
       <GlassCard className="overflow-hidden">
-        {/* Table Headers */}
+        {/* Responsive Table Headers */}
         <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr_auto] md:grid-cols-5 gap-2 md:gap-4 bg-slate-100 px-4 md:px-6 py-4 text-[9px] md:text-xs uppercase font-bold tracking-wider text-slate-500">
           <div>User</div>
           <div>Role / Plan</div>
@@ -85,6 +84,7 @@ export default function UserManagement() {
           <div></div>
         </div>
 
+        {/* Table Body */}
         {loading ? (
           <div className="p-10 flex justify-center">
             <Loader2 className="animate-spin w-8 h-8 text-fuchsia-600" />

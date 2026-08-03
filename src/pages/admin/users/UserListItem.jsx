@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ShieldCheck,
   UserCheck,
@@ -24,6 +25,7 @@ export default function UserListItem({
   onUserUpdated,
 }) {
   const [isUpdating, setIsUpdating] = useState(false);
+  const navigate = useNavigate();
 
   const role = user.is_admin
     ? "Admin"
@@ -32,21 +34,38 @@ export default function UserListItem({
       : "Basic";
 
   const handleToggleAgent = async (currentTier) => {
+    // Determine what action we are taking to make the alert message clear
+    const isPromoting = currentTier !== "agent";
+    const actionText = isPromoting
+      ? "promote this user to an Agent"
+      : "remove this user's Agent status";
+
+    // Stop and ask for confirmation before doing anything
+    const confirmed = window.confirm(`Are you sure you want to ${actionText}?`);
+    if (!confirmed) return;
+
     setIsUpdating(true);
     const newTier = currentTier === "agent" ? "basic" : "agent";
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({ user_tier: newTier })
-      .eq("id", user.id);
+    // Use our secure RPC to update the database
+    const { error } = await supabase.rpc("admin_update_user_tier", {
+      target_user_id: user.id,
+      new_tier: newTier,
+    });
 
     if (error) {
       console.error("Error updating user tier:", error);
       alert("Failed to update user. Check console.");
     } else {
+      // Trigger the parent fetch to pull the freshly updated database row
       onUserUpdated();
     }
     setIsUpdating(false);
+  };
+
+  const handleAdjustWallet = () => {
+    // Navigate to the wallet page and pass the user object in router state
+    navigate("/admin/wallet", { state: { prefilledUser: user } });
   };
 
   return (
@@ -55,7 +74,6 @@ export default function UserListItem({
         onClick={onToggleExpand}
         className="w-full grid grid-cols-[1.5fr_1fr_1fr_1fr_auto] md:grid-cols-5 gap-2 md:gap-4 items-center px-4 md:px-6 py-4 hover:bg-fuchsia-50 transition text-left"
       >
-        {/* min-w-0 is the secret sauce that allows truncate to work inside CSS grid */}
         <div className="min-w-0 pr-2">
           <p className="font-bold text-slate-800 text-xs md:text-sm truncate">
             {user.full_name || "Unknown User"}
@@ -103,6 +121,7 @@ export default function UserListItem({
         </div>
       </button>
 
+      {/* EXPANDED ACTIONS SECTION */}
       {expanded && (
         <div className="px-6 pb-6 bg-slate-50 border-t border-slate-100 pt-4">
           <div className="grid md:grid-cols-2 gap-5">
@@ -129,7 +148,10 @@ export default function UserListItem({
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            <button className="rounded-xl bg-linear-to-r from-fuchsia-600 to-purple-600 text-white px-5 py-2 text-sm font-semibold hover:opacity-90 transition">
+            <button
+              onClick={handleAdjustWallet}
+              className="rounded-xl bg-linear-to-r from-fuchsia-600 to-purple-600 text-white px-5 py-2 text-sm font-semibold hover:opacity-90 transition"
+            >
               Adjust Wallet
             </button>
 

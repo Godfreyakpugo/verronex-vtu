@@ -7,8 +7,11 @@ export default function AuthCallback() {
 
   useEffect(() => {
     const completeAuth = async () => {
-      await supabase.auth.getSession();
-      navigate("/login", { replace: true });
+      const { data } = await supabase.auth.getSession();
+      // Email link tokens create a session on this page — send
+      // verified users straight to the dashboard. Only fall back
+      // to login if no session was established.
+      navigate(data.session ? "/dashboard" : "/login", { replace: true });
     };
 
     completeAuth();
