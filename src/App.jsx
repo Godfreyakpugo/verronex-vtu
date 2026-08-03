@@ -6,6 +6,7 @@ import LoginPage from "./pages/auth/LoginPage";
 import SignupPage from "./pages/auth/SignupPage";
 import AuthCallback from "./pages/auth/AuthCallback";
 import FundWallet from "./pages/dashboard/FundWallet";
+import BuyAirtime from "./pages/dashboard/BuyAirtime";
 import "./index.css";
 
 // ✅ OUR NEW DOMAIN-DRIVEN IMPORTS
@@ -61,6 +62,16 @@ export default function App() {
             <ProtectedRoute>
               <Shell>
                 <FundWallet />
+              </Shell>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/buy-airtime"
+          element={
+            <ProtectedRoute>
+              <Shell>
+                <BuyAirtime />
               </Shell>
             </ProtectedRoute>
           }

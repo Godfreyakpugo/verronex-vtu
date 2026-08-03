@@ -60,8 +60,9 @@ function Sidebar({ open, onClose }) {
           </button>
         </div>
 
-        {/* Nav Links */}
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        {/* Nav Links — relative z-10 keeps items above the glow; pb-48 leaves
+            room to scroll the last items clear of it */}
+        <nav className="relative z-10 flex-1 p-4 pb-48 space-y-1 overflow-y-auto">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
@@ -146,8 +147,12 @@ function Sidebar({ open, onClose }) {
           )}
         </nav>
 
-        {/* Decorative depth */}
-        <div className="relative h-40 shrink-0 overflow-hidden pointer-events-none">
+        {/* Decorative depth — absolutely positioned: takes up no layout space
+            and paints behind the nav, so it never blocks or overlays items */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 bottom-0 h-40 overflow-hidden pointer-events-none"
+        >
           <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-fuchsia-400 rounded-full filter blur-[60px] opacity-20" />
           <div className="absolute -bottom-10 left-16 w-32 h-32 bg-purple-500 rounded-full filter blur-[60px] opacity-15" />
         </div>
