@@ -2,9 +2,11 @@ import { Wifi, Phone, Plus, ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import GlassCard from "../../components/ui/GlassCard";
+import { ROUTES } from "../../routes";
 
 const quickActions = [
   {
+    to: ROUTES.BUY_DATA,
     icon: Wifi,
     label: "Buy Data",
     sub: "SME & Corporate bundles",
@@ -13,6 +15,7 @@ const quickActions = [
       "bg-linear-to-br from-fuchsia-600 to-purple-600 shadow-md shadow-fuchsia-500/30 border-0",
   },
   {
+    to: ROUTES.BUY_AIRTIME,
     icon: Phone,
     label: "Buy Airtime",
     sub: "All networks supported",
@@ -78,20 +81,21 @@ function Dashboard() {
           Quick Actions
         </h2>
         <div className="grid grid-cols-2 gap-4">
-          {quickActions.map(({ icon: Icon, label, sub, iconColor, iconBg }) => (
-            <GlassCard
-              key={label}
-              className="p-5 cursor-pointer active:scale-95 hover:shadow-xl hover:shadow-purple-500/10 transition-all border-slate-200/60"
-            >
-              <div
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${iconBg}`}
-              >
-                <Icon className={`w-6 h-6 ${iconColor}`} />
-              </div>
-              <p className="text-base font-bold text-slate-900">{label}</p>
-              <p className="text-xs text-slate-500 mt-1">{sub}</p>
-            </GlassCard>
-          ))}
+          {quickActions.map(
+            ({ to, icon: Icon, label, sub, iconColor, iconBg }) => (
+              <Link to={to} key={label}>
+                <GlassCard className="p-5 cursor-pointer active:scale-95 hover:shadow-xl hover:shadow-purple-500/10 transition-all border-slate-200/60">
+                  <div
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${iconBg}`}
+                  >
+                    <Icon className={`w-6 h-6 ${iconColor}`} />
+                  </div>
+                  <p className="text-base font-bold text-slate-900">{label}</p>
+                  <p className="text-xs text-slate-500 mt-1">{sub}</p>
+                </GlassCard>
+              </Link>
+            ),
+          )}
         </div>
       </div>
 

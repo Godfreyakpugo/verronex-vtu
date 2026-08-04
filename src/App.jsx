@@ -6,6 +6,7 @@ import LoginPage from "./pages/auth/LoginPage";
 import SignupPage from "./pages/auth/SignupPage";
 import AuthCallback from "./pages/auth/AuthCallback";
 import FundWallet from "./pages/dashboard/FundWallet";
+import BuyData from "./pages/dashboard/BuyData";
 import BuyAirtime from "./pages/dashboard/BuyAirtime";
 import "./index.css";
 
@@ -62,6 +63,16 @@ export default function App() {
             <ProtectedRoute>
               <Shell>
                 <FundWallet />
+              </Shell>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/buy-data"
+          element={
+            <ProtectedRoute>
+              <Shell>
+                <BuyData />
               </Shell>
             </ProtectedRoute>
           }
