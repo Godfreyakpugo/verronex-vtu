@@ -97,45 +97,98 @@ Deno.serve(async (req) => {
 
     console.log("[6] Sending request to Gladtidings");
 
-    const response = await fetch(
-      `${Deno.env.get("GLADTIDINGS_BASE_URL")}/api/data/`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Token ${Deno.env.get("GLADTIDINGS_API_TOKEN")}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          network: purchase.network_id,
-          mobile_number: phoneNumber,
-          plan: Number(purchase.api_plan_id),
-          Ported_number: true,
-          ident: reference,
-        }),
-      }
+    console.log(
+      "[6.1] GLADTIDINGS_API_TOKEN:",
+      Deno.env.get("GLADTIDINGS_API_TOKEN")
+        ? `exists, length=${Deno.env.get("GLADTIDINGS_API_TOKEN").length}`
+        : "MISSING"
     );
 
-    console.log("[7] Provider HTTP Status", response.status);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    let provider;
+    let response = null;
+    let fetchError = null;
 
     try {
-      provider = await response.json();
+      response = await fetch(
+        `${Deno.env.get("GLADTIDINGS_BASE_URL")}/api/data/`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Token ${Deno.env.get("GLADTIDINGS_API_TOKEN")}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            network: purchase.network_id,
+            mobile_number: phoneNumber,
+            plan: Number(purchase.api_plan_id),
+            Ported_number: true,
+            ident: reference,
+          }),
+          signal: controller.signal,
+        }
+      );
     } catch (err) {
-      console.error("Provider JSON parse failed", err);
-      provider = {
-        Status: "failed",
-        api_response: "Invalid provider response",
-      };
+      fetchError = err;
+      console.error(
+        "[7] Gladtidings request failed:",
+        err?.name,
+        err?.message
+      );
+    } finally {
+      clearTimeout(timeoutId);
     }
 
-    console.log("[8] Provider response", provider);
+    let provider = null;
+
+    if (fetchError) {
+      provider = {
+        Status: "failed",
+        api_response:
+          fetchError?.name === "AbortError"
+            ? "Gladtidings request timed out after 15s"
+            : `Gladtidings request failed: ${fetchError?.message || "unknown error"}`,
+      };
+    } else {
+      console.log("[7] Gladtidings HTTP status:", response.status);
+
+      console.log(
+        "[7.1] Redirected:",
+        response.redirected,
+        "Final URL:",
+        response.url
+      );
+
+      const rawBody = await response.text();
+
+      console.log("[8] Gladtidings raw response:", rawBody);
+
+      try {
+        provider = rawBody ? JSON.parse(rawBody) : null;
+      } catch (err) {
+        console.error("[9] Gladtidings response was not JSON:", err?.message);
+        provider = null;
+      }
+
+      if (provider) {
+        console.log(
+          "[9] Gladtidings parsed response:",
+          JSON.stringify(provider)
+        );
+      } else {
+        provider = {
+          Status: "failed",
+          api_response: rawBody || "Invalid provider response",
+        };
+      }
+    }
 
     if (
-      response.ok &&
+      response?.ok &&
       provider.Status?.toLowerCase() === "successful"
     ) {
-      console.log("[9] Completing transaction via complete_data_purchase");
+      console.log("[10] Completing transaction via complete_data_purchase");
 
       const { data: completed, error: completeError } = await supabase.rpc(
         "complete_data_purchase",
@@ -156,7 +209,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      console.log("[12] Purchase completed successfully");
+      console.log("[13] Purchase completed successfully");
 
       return Response.json(
         {
@@ -169,7 +222,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log("[10] Calling refund_purchase");
+    console.log("[11] Calling refund_purchase");
 
     const { error: refundError } = await supabase.rpc("refund_purchase", {
       p_reference: reference,
@@ -187,7 +240,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log("[11] Refund completed");
+    console.log("[12] Refund completed");
 
     return Response.json(
       {
