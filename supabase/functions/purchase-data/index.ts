@@ -6,19 +6,14 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const networkMap: Record<string, number> = {
-  MTN: 1,
-  GLO: 2,
-  "9MOBILE": 3,
-  AIRTEL: 4,
-};
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    console.log("[1] Purchase request received");
+
     const authHeader = req.headers.get("Authorization");
 
     if (!authHeader) {
@@ -52,6 +47,8 @@ Deno.serve(async (req) => {
       );
     }
 
+    console.log("[2] User authenticated", user.id);
+
     const { planId, phoneNumber } = await req.json();
 
     if (!planId || !phoneNumber) {
@@ -61,11 +58,15 @@ Deno.serve(async (req) => {
       );
     }
 
+    console.log("[3] Request body validated");
+
     const reference =
       "DATA-" +
       Date.now() +
       "-" +
       crypto.randomUUID().slice(0, 8);
+
+    console.log("[4] Calling start_data_purchase");
 
     const { data, error } = await supabase.rpc(
       "start_data_purchase",
@@ -90,7 +91,11 @@ Deno.serve(async (req) => {
       );
     }
 
+    console.log("[5] RPC completed", data);
+
     const purchase = data[0];
+
+    console.log("[6] Sending request to Gladtidings");
 
     const response = await fetch(
       `${Deno.env.get("GLADTIDINGS_BASE_URL")}/api/data/`,
@@ -101,7 +106,7 @@ Deno.serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          network: networkMap[purchase.network],
+          network: purchase.network_id,
           mobile_number: phoneNumber,
           plan: Number(purchase.api_plan_id),
           Ported_number: true,
@@ -110,23 +115,53 @@ Deno.serve(async (req) => {
       }
     );
 
-    const provider = await response.json();
+    console.log("[7] Provider HTTP Status", response.status);
+
+    let provider;
+
+    try {
+      provider = await response.json();
+    } catch (err) {
+      console.error("Provider JSON parse failed", err);
+      provider = {
+        Status: "failed",
+        api_response: "Invalid provider response",
+      };
+    }
+
+    console.log("[8] Provider response", provider);
 
     if (
       response.ok &&
       provider.Status?.toLowerCase() === "successful"
     ) {
-      await supabase
-        .from("transactions")
-        .update({
-          status: "successful",
-          metadata: provider,
-        })
-        .eq("reference", reference);
+      console.log("[9] Completing transaction via complete_data_purchase");
+
+      const { data: completed, error: completeError } = await supabase.rpc(
+        "complete_data_purchase",
+        { p_reference: reference, p_metadata: provider }
+      );
+
+      if (completeError) {
+        return Response.json(
+          { success: false, error: completeError.message },
+          { headers: corsHeaders }
+        );
+      }
+
+      if (!completed) {
+        return Response.json(
+          { success: false, error: "Transaction could not be completed." },
+          { headers: corsHeaders }
+        );
+      }
+
+      console.log("[12] Purchase completed successfully");
 
       return Response.json(
         {
           success: true,
+          message: "Purchase completed successfully.",
           reference,
           provider,
         },
@@ -134,14 +169,30 @@ Deno.serve(async (req) => {
       );
     }
 
-    await supabase.rpc("refund_purchase", {
+    console.log("[10] Calling refund_purchase");
+
+    const { error: refundError } = await supabase.rpc("refund_purchase", {
       p_reference: reference,
       p_reason: provider.api_response || "Provider failed",
     });
 
+    if (refundError) {
+      return Response.json(
+        {
+          success: false,
+          error: "Refund failed",
+          refundError,
+        },
+        { headers: corsHeaders }
+      );
+    }
+
+    console.log("[11] Refund completed");
+
     return Response.json(
       {
         success: false,
+        error: provider.api_response || "Purchase failed",
         provider,
       },
       { headers: corsHeaders }

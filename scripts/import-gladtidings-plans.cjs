@@ -48,6 +48,7 @@ for (const networkName of Object.keys(dataplans)) {
       const costPrice = Number(plan.api_price);
 
       rowMap.set(`gladtidings-${plan.dataplan_id}`, {
+        network_id: Number(plan.network),
         network: plan.plan_network,
         plan_name: `${plan.plan} (${plan.plan_type})`,
         provider: "gladtidings",

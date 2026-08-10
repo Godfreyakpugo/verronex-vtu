@@ -6,6 +6,12 @@ import {
   CheckCircle2,
   XCircle,
   ChevronRight,
+  Sun,
+  Calendar,
+  CalendarDays,
+  CalendarRange,
+  Sparkles,
+  LayoutGrid,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import supabase from "../../lib/supabaseClient";
@@ -13,44 +19,65 @@ import GlassCard from "../../components/ui/GlassCard";
 import ConfirmModal from "../../components/ui/ConfirmModal";
 
 const NETWORK_THEME = {
-  mtn: {
-    chipActive: "bg-yellow-400 border-yellow-400 text-slate-900",
-    chipInactive: "border-yellow-300 text-yellow-700 hover:bg-yellow-50",
-    dot: "bg-yellow-400",
-  },
-  glo: {
-    chipActive: "bg-green-500 border-green-500 text-white",
-    chipInactive: "border-green-300 text-green-700 hover:bg-green-50",
-    dot: "bg-green-500",
-  },
-  airtel: {
-    chipActive: "bg-red-500 border-red-500 text-white",
-    chipInactive: "border-red-300 text-red-700 hover:bg-red-50",
-    dot: "bg-red-500",
-  },
-  "9mobile": {
-    chipActive: "bg-emerald-600 border-emerald-600 text-white",
-    chipInactive: "border-emerald-300 text-emerald-700 hover:bg-emerald-50",
-    dot: "bg-emerald-600",
-  },
-  etisalat: {
-    chipActive: "bg-emerald-600 border-emerald-600 text-white",
-    chipInactive: "border-emerald-300 text-emerald-700 hover:bg-emerald-50",
-    dot: "bg-emerald-600",
-  },
+  mtn: { badge: "bg-yellow-400 text-slate-900", initials: "MTN" },
+  glo: { badge: "bg-green-500 text-white", initials: "GLO" },
+  airtel: { badge: "bg-red-500 text-white", initials: "AIR" },
+  "9mobile": { badge: "bg-emerald-600 text-white", initials: "9M" },
+  etisalat: { badge: "bg-emerald-600 text-white", initials: "ETI" },
 };
 
-const DEFAULT_THEME = {
-  chipActive: "bg-fuchsia-600 border-fuchsia-600 text-white",
-  chipInactive: "border-fuchsia-300 text-fuchsia-700 hover:bg-fuchsia-50",
-  dot: "bg-fuchsia-500",
-};
+const DEFAULT_THEME = { badge: "bg-fuchsia-500 text-white", initials: null };
 
 function getNetworkTheme(network) {
   const key = Object.keys(NETWORK_THEME).find((k) =>
     network?.toLowerCase().includes(k),
   );
   return key ? NETWORK_THEME[key] : DEFAULT_THEME;
+}
+
+function getNetworkInitials(network) {
+  const theme = getNetworkTheme(network);
+  if (theme.initials) return theme.initials;
+  return (network || "").slice(0, 3).toUpperCase();
+}
+
+const EXCLUDED_PLAN_TYPES = ["talkmore"];
+
+const CATEGORY_META = {
+  daily: { label: "Daily", icon: Sun },
+  weekly: { label: "Weekly", icon: CalendarDays },
+  monthly: { label: "Monthly", icon: Calendar },
+  yearly: { label: "Yearly", icon: CalendarRange },
+  other: { label: "Other", icon: Sparkles },
+};
+
+const CATEGORY_ORDER = ["daily", "weekly", "monthly", "yearly", "other"];
+
+function parseValidityDays(validity) {
+  if (!validity) return null;
+  const match = validity.match(/(\d+)\s*-?\s*days?\b/i);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+function parseValidityKeyword(validity) {
+  if (!validity) return null;
+  const lower = validity.toLowerCase();
+  if (lower.includes("daily")) return "daily";
+  if (lower.includes("weekly")) return "weekly";
+  if (lower.includes("monthly")) return "monthly";
+  if (lower.includes("yearly") || lower.includes("annual")) return "yearly";
+  return null;
+}
+
+function getValidityCategory(validity) {
+  const days = parseValidityDays(validity);
+  if (days !== null) {
+    if (days <= 3) return "daily";
+    if (days <= 13) return "weekly";
+    if (days <= 45) return "monthly";
+    return "yearly";
+  }
+  return parseValidityKeyword(validity) || "other";
 }
 
 function isValidNigerianPhone(raw) {
@@ -120,7 +147,10 @@ export default function BuyData() {
   const [loadError, setLoadError] = useState("");
 
   const [selectedNetwork, setSelectedNetwork] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [viewAll, setViewAll] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
+
   const [phoneNumber, setPhoneNumber] = useState("");
   const [phoneTouched, setPhoneTouched] = useState(false);
 
@@ -139,7 +169,16 @@ export default function BuyData() {
 
       const { data, error } = await supabase
         .from("data_plans")
-        .select("*")
+        .select(
+          `
+          id,
+          network,
+          plan_name,
+          selling_price,
+          validity,
+          plan_type
+        `,
+        )
         .eq("is_active", true)
         .order("network", { ascending: true })
         .order("selling_price", { ascending: true });
@@ -161,22 +200,64 @@ export default function BuyData() {
     };
   }, []);
 
+  // Exclude non-data plan types (e.g. TALKMORE minute bundles) and drop
+  // exact duplicates (same network + plan_name + selling_price).
+  const dataPlans = useMemo(() => {
+    const filtered = plans.filter(
+      (plan) =>
+        !EXCLUDED_PLAN_TYPES.includes(
+          (plan.plan_type || "").trim().toLowerCase(),
+        ),
+    );
+
+    const seen = new Set();
+    const deduped = [];
+    for (const plan of filtered) {
+      const key = `${plan.network}|${plan.plan_name}|${plan.selling_price}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(plan);
+    }
+    return deduped;
+  }, [plans]);
+
   const networks = useMemo(() => {
     const seen = [];
-    for (const plan of plans) {
+    for (const plan of dataPlans) {
       if (plan.network && !seen.includes(plan.network)) seen.push(plan.network);
     }
     return seen;
-  }, [plans]);
+  }, [dataPlans]);
 
   const plansForNetwork = useMemo(
-    () => plans.filter((plan) => plan.network === selectedNetwork),
-    [plans, selectedNetwork],
+    () => dataPlans.filter((plan) => plan.network === selectedNetwork),
+    [dataPlans, selectedNetwork],
   );
 
+  const categorizedPlans = useMemo(() => {
+    const map = {};
+    for (const plan of plansForNetwork) {
+      const cat = getValidityCategory(plan.validity);
+      if (!map[cat]) map[cat] = [];
+      map[cat].push(plan);
+    }
+    return map;
+  }, [plansForNetwork]);
+
+  const availableCategories = useMemo(
+    () => CATEGORY_ORDER.filter((cat) => categorizedPlans[cat]?.length > 0),
+    [categorizedPlans],
+  );
+
+  const visiblePlans = useMemo(() => {
+    if (viewAll) return plansForNetwork;
+    if (!selectedCategory) return [];
+    return categorizedPlans[selectedCategory] || [];
+  }, [viewAll, selectedCategory, categorizedPlans, plansForNetwork]);
+
   const selectedPlan = useMemo(
-    () => plans.find((plan) => plan.id === selectedPlanId) || null,
-    [plans, selectedPlanId],
+    () => dataPlans.find((plan) => plan.id === selectedPlanId) || null,
+    [dataPlans, selectedPlanId],
   );
 
   const phoneIsValid = isValidNigerianPhone(phoneNumber);
@@ -191,23 +272,41 @@ export default function BuyData() {
     phoneIsValid &&
     !purchasing;
 
-  function handleSelectNetwork(network) {
-    setSelectedNetwork(network);
-    setSelectedPlanId(null);
+  function clearMessages() {
     setBannerError("");
     setBannerSuccess("");
+  }
+
+  function handleSelectNetwork(network) {
+    setSelectedNetwork((prev) => (prev === network ? null : network));
+    setSelectedCategory(null);
+    setViewAll(false);
+    setSelectedPlanId(null);
+    clearMessages();
+  }
+
+  function handleSelectCategory(cat) {
+    setSelectedCategory((prev) => (prev === cat ? null : cat));
+    setViewAll(false);
+    setSelectedPlanId(null);
+    clearMessages();
+  }
+
+  function handleToggleViewAll() {
+    setViewAll((prev) => !prev);
+    setSelectedCategory(null);
+    setSelectedPlanId(null);
+    clearMessages();
   }
 
   function handleSelectPlan(planId) {
     setSelectedPlanId(planId);
-    setBannerError("");
-    setBannerSuccess("");
+    clearMessages();
   }
 
   function handleOpenConfirm() {
     setPhoneTouched(true);
-    setBannerError("");
-    setBannerSuccess("");
+    clearMessages();
 
     if (!selectedNetwork || !selectedPlan) {
       setBannerError("Please select a network and a plan.");
@@ -284,7 +383,7 @@ export default function BuyData() {
         onDismiss={() => setBannerSuccess("")}
       />
 
-      <GlassCard className="p-5 lg:p-6 space-y-6">
+      <GlassCard className="p-5 lg:p-6 space-y-1">
         {/* Network */}
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-3">
@@ -296,7 +395,7 @@ export default function BuyData() {
               {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="h-10 w-20 rounded-xl bg-slate-200 animate-pulse"
+                  className="h-[76px] w-[76px] rounded-2xl bg-slate-200 animate-pulse"
                 />
               ))}
             </div>
@@ -307,23 +406,30 @@ export default function BuyData() {
               No data plans are available right now.
             </p>
           ) : (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2.5">
               {networks.map((network) => {
-                const theme = getNetworkTheme(network);
                 const active = selectedNetwork === network;
                 return (
                   <button
                     key={network}
                     type="button"
                     onClick={() => handleSelectNetwork(network)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 font-semibold text-sm transition-all ${
+                    className={`flex flex-col items-center gap-1.5 min-w-[76px] rounded-2xl border-2 px-4 py-3 transition-all ${
                       active
-                        ? theme.chipActive
-                        : `bg-white ${theme.chipInactive}`
+                        ? "border-fuchsia-500 bg-gradient-to-br from-indigo-50 to-fuchsia-50 shadow-[0_6px_20px_rgba(236,72,153,0.18)]"
+                        : "border-slate-200 bg-white hover:border-fuchsia-300"
                     }`}
                   >
-                    <span className={`w-2 h-2 rounded-full ${theme.dot}`} />
-                    {network}
+                    <span
+                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-[11px] ${
+                        getNetworkTheme(network).badge
+                      }`}
+                    >
+                      {getNetworkInitials(network)}
+                    </span>
+                    <span className="text-xs font-semibold text-slate-700">
+                      {network}
+                    </span>
                   </button>
                 );
               })}
@@ -331,54 +437,8 @@ export default function BuyData() {
           )}
         </div>
 
-        {/* Plans */}
-        {selectedNetwork && (
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-3">
-              Plan
-            </label>
-
-            {plansForNetwork.length === 0 ? (
-              <p className="text-sm text-slate-500">
-                No active plans found for {selectedNetwork}.
-              </p>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {plansForNetwork.map((plan) => {
-                  const active = selectedPlanId === plan.id;
-                  return (
-                    <button
-                      key={plan.id}
-                      type="button"
-                      onClick={() => handleSelectPlan(plan.id)}
-                      className={`text-left rounded-2xl border-2 p-3.5 transition-all ${
-                        active
-                          ? "border-fuchsia-500 bg-gradient-to-br from-indigo-50 to-fuchsia-50 shadow-[0_6px_20px_rgba(236,72,153,0.18)]"
-                          : "border-slate-200 bg-white hover:border-fuchsia-300"
-                      }`}
-                    >
-                      <p className="font-semibold text-slate-800 text-sm">
-                        {plan.plan_name}
-                        {plan.plan_type ? ` (${plan.plan_type})` : ""}
-                      </p>
-                      <p className="text-fuchsia-600 font-bold mt-1">
-                        {formatNaira(plan.selling_price)}
-                      </p>
-                      {plan.validity && (
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          {plan.validity}
-                        </p>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Phone number */}
-        <div>
+        <div className="pt-5">
           <label
             htmlFor="phoneNumber"
             className="block text-sm font-semibold text-slate-700 mb-3"
@@ -402,31 +462,140 @@ export default function BuyData() {
               }`}
             />
           </div>
-          {phoneError && (
+          {phoneError ? (
             <p className="text-xs text-red-600 mt-1.5">{phoneError}</p>
+          ) : (
+            <p className="text-xs text-slate-400 mt-1.5">
+              Data will be sent to this number.
+            </p>
           )}
         </div>
 
-        {/* Buy button */}
-        <button
-          type="button"
-          disabled={!canSubmit}
-          onClick={handleOpenConfirm}
-          className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white font-semibold py-3 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
+        {/* Category unfold */}
+        <div
+          className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+            selectedNetwork ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+          }`}
         >
-          {purchasing ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            <>
-              <Wifi className="w-4 h-4" />
-              Buy Data
-              <ChevronRight className="w-4 h-4" />
-            </>
-          )}
-        </button>
+          <div className="overflow-hidden">
+            {selectedNetwork && (
+              <div className="pt-5">
+                <label className="block text-sm font-semibold text-slate-700 mb-3">
+                  Plan Type
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {availableCategories.map((cat) => {
+                    const meta = CATEGORY_META[cat];
+                    const Icon = meta.icon;
+                    const active = selectedCategory === cat;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => handleSelectCategory(cat)}
+                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border-2 text-sm font-semibold transition-all ${
+                          active
+                            ? "bg-gradient-to-r from-indigo-600 to-fuchsia-600 border-transparent text-white"
+                            : "bg-white border-slate-200 text-slate-600 hover:border-fuchsia-300"
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        {meta.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleToggleViewAll}
+                  className={`mt-2.5 flex items-center gap-1.5 px-3.5 py-2 rounded-xl border-2 text-sm font-semibold transition-all ${
+                    viewAll
+                      ? "bg-gradient-to-r from-indigo-600 to-fuchsia-600 border-transparent text-white"
+                      : "bg-white border-slate-200 text-slate-600 hover:border-fuchsia-300"
+                  }`}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                  View all plans
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Plan grid unfold */}
+        <div
+          className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+            selectedCategory || viewAll ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+          }`}
+        >
+          <div className="overflow-hidden">
+            {(selectedCategory || viewAll) && (
+              <div className="pt-5">
+                <label className="block text-sm font-semibold text-slate-700 mb-3">
+                  Plan
+                </label>
+                {visiblePlans.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    No plans found in this category.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {visiblePlans.map((plan) => {
+                      const active = selectedPlanId === plan.id;
+                      return (
+                        <button
+                          key={plan.id}
+                          type="button"
+                          onClick={() => handleSelectPlan(plan.id)}
+                          className={`text-left rounded-2xl border-2 p-3.5 transition-all ${
+                            active
+                              ? "border-fuchsia-500 bg-gradient-to-br from-indigo-50 to-fuchsia-50 shadow-[0_6px_20px_rgba(236,72,153,0.18)]"
+                              : "border-slate-200 bg-white hover:border-fuchsia-300"
+                          }`}
+                        >
+                          <p className="font-semibold text-slate-800 text-sm">
+                            {plan.plan_name}
+                          </p>
+                          <p className="text-fuchsia-600 font-bold mt-1">
+                            {formatNaira(plan.selling_price)}
+                          </p>
+                          {plan.validity && (
+                            <p className="text-xs text-slate-400 mt-0.5">
+                              {plan.validity}
+                            </p>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Buy button */}
+        <div className="pt-5">
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={handleOpenConfirm}
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white font-semibold py-3 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
+          >
+            {purchasing ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <Wifi className="w-4 h-4" />
+                Buy Data
+                <ChevronRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
+        </div>
       </GlassCard>
 
       <ConfirmModal
@@ -434,9 +603,11 @@ export default function BuyData() {
         title="Confirm Data Purchase"
         message={
           selectedPlan
-            ? `Network: ${selectedNetwork}\nPlan: ${selectedPlan.plan_name}${
-                selectedPlan.plan_type ? ` (${selectedPlan.plan_type})` : ""
-              }\nPrice: ${formatNaira(selectedPlan.selling_price)}\nPhone: ${normalizeNigerianPhone(
+            ? `Network: ${selectedNetwork}\nPlan: ${
+                selectedPlan.plan_name
+              }\nPrice: ${formatNaira(
+                selectedPlan.selling_price,
+              )}\nPhone: ${normalizeNigerianPhone(
                 phoneNumber,
               )}\n\nThis amount will be deducted from your wallet.`
             : ""
