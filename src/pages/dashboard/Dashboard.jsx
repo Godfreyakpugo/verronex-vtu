@@ -69,7 +69,7 @@ function Dashboard() {
             to="/fund-wallet"
             className="shrink-0 flex items-center gap-2 bg-white hover:bg-slate-50 active:scale-95 text-purple-700 text-sm font-bold px-5 py-3 rounded-2xl shadow-lg transition-all"
           >
-            <Plus className="w-4 h-4 stroke-[3]" />
+            <Plus className="w-4 h-4 stroke-3" />
             Fund Wallet
           </Link>
         </div>
