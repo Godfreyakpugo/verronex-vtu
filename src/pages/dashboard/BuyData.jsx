@@ -3,8 +3,6 @@ import {
   Wifi,
   Smartphone,
   Loader2,
-  CheckCircle2,
-  XCircle,
   ChevronRight,
   Sun,
   Calendar,
@@ -17,6 +15,7 @@ import { useAuth } from "../../context/AuthContext";
 import supabase from "../../lib/supabaseClient";
 import GlassCard from "../../components/ui/GlassCard";
 import ConfirmModal from "../../components/ui/ConfirmModal";
+import Toast from "../../components/ui/Toast";
 
 const NETWORK_THEME = {
   mtn: { badge: "bg-yellow-400 text-slate-900", initials: "MTN" },
@@ -111,34 +110,6 @@ async function extractFunctionErrorMessage(error) {
   return error?.message || "Something went wrong. Please try again.";
 }
 
-function Banner({ type, message, onDismiss }) {
-  if (!message) return null;
-  const isError = type === "error";
-  return (
-    <div
-      className={`flex items-start gap-3 rounded-2xl border p-4 ${
-        isError
-          ? "bg-red-50 border-red-200 text-red-700"
-          : "bg-emerald-50 border-emerald-200 text-emerald-700"
-      }`}
-    >
-      {isError ? (
-        <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
-      ) : (
-        <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
-      )}
-      <p className="text-sm flex-1">{message}</p>
-      <button
-        type="button"
-        onClick={onDismiss}
-        className="text-xs font-medium opacity-70 hover:opacity-100"
-      >
-        Dismiss
-      </button>
-    </div>
-  );
-}
-
 export default function BuyData() {
   const { refreshWallet } = useAuth();
 
@@ -157,8 +128,7 @@ export default function BuyData() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
 
-  const [bannerError, setBannerError] = useState("");
-  const [bannerSuccess, setBannerSuccess] = useState("");
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     let ignore = false;
@@ -273,8 +243,7 @@ export default function BuyData() {
     !purchasing;
 
   function clearMessages() {
-    setBannerError("");
-    setBannerSuccess("");
+    setToast(null);
   }
 
   function handleSelectNetwork(network) {
@@ -309,11 +278,19 @@ export default function BuyData() {
     clearMessages();
 
     if (!selectedNetwork || !selectedPlan) {
-      setBannerError("Please select a network and a plan.");
+      setToast({
+        type: "error",
+        title: "Cannot proceed",
+        message: "Please select a network and a plan.",
+      });
       return;
     }
     if (!phoneIsValid) {
-      setBannerError("Please enter a valid Nigerian phone number.");
+      setToast({
+        type: "error",
+        title: "Invalid phone number",
+        message: "Please enter a valid Nigerian phone number.",
+      });
       return;
     }
     setConfirmOpen(true);
@@ -323,7 +300,7 @@ export default function BuyData() {
     if (!selectedPlan) return;
 
     setPurchasing(true);
-    setBannerError("");
+    setToast(null);
 
     const normalizedPhone = normalizeNigerianPhone(phoneNumber);
 
@@ -344,10 +321,18 @@ export default function BuyData() {
         throw new Error(data.error);
       }
 
-      setBannerSuccess(
-        data?.message ||
+      if (data?.success === false) {
+        throw new Error(data.error || "Purchase failed. Please try again.");
+      }
+
+      const providerMessage = data?.provider?.api_response;
+      setToast({
+        type: "success",
+        title: "Purchase Successful",
+        message:
+          providerMessage ||
           `${selectedPlan.plan_name} sent to ${normalizedPhone} successfully.`,
-      );
+      });
       setConfirmOpen(false);
       setSelectedPlanId(null);
       setPhoneNumber("");
@@ -355,7 +340,11 @@ export default function BuyData() {
       refreshWallet();
     } catch (err) {
       setConfirmOpen(false);
-      setBannerError(err.message || "Purchase failed. Please try again.");
+      setToast({
+        type: "error",
+        title: "Purchase Failed",
+        message: err.message || "Purchase failed. Please try again.",
+      });
     } finally {
       setPurchasing(false);
     }
@@ -372,15 +361,11 @@ export default function BuyData() {
         </p>
       </header>
 
-      <Banner
-        type="error"
-        message={bannerError}
-        onDismiss={() => setBannerError("")}
-      />
-      <Banner
-        type="success"
-        message={bannerSuccess}
-        onDismiss={() => setBannerSuccess("")}
+      <Toast
+        type={toast?.type}
+        title={toast?.title}
+        message={toast?.message}
+        onDismiss={() => setToast(null)}
       />
 
       <GlassCard className="p-5 lg:p-6 space-y-1">
