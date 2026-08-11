@@ -104,6 +104,34 @@ Deno.serve(async (req) => {
         : "MISSING"
     );
 
+    const gladtidingsToken = Deno.env.get("GLADTIDINGS_API_TOKEN");
+
+    const gladtidingsHeaders = {
+      Authorization: `Token ${gladtidingsToken}`,
+      "Content-Type": "application/json",
+    };
+
+    console.log(
+      "[6.2] Authorization header diagnostic:",
+      gladtidingsToken
+        ? `constructed as "Token <redacted>", length=${gladtidingsToken.length}`
+        : "MISSING TOKEN"
+    );
+
+    console.log(
+      "[6.3] Request headers diagnostic:",
+      JSON.stringify({
+        authorization_present: Boolean(gladtidingsHeaders.Authorization),
+        authorization_prefix: gladtidingsHeaders.Authorization
+          ? gladtidingsHeaders.Authorization.split(" ")[0]
+          : null,
+        authorization_value_length: gladtidingsHeaders.Authorization
+          ? gladtidingsHeaders.Authorization.length
+          : 0,
+        content_type: gladtidingsHeaders["Content-Type"],
+      })
+    );
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
@@ -115,10 +143,7 @@ Deno.serve(async (req) => {
         `${Deno.env.get("GLADTIDINGS_BASE_URL")}/api/data/`,
         {
           method: "POST",
-          headers: {
-            Authorization: `Token ${Deno.env.get("GLADTIDINGS_API_TOKEN")}`,
-            "Content-Type": "application/json",
-          },
+          headers: gladtidingsHeaders,
           body: JSON.stringify({
             network: purchase.network_id,
             mobile_number: phoneNumber,
