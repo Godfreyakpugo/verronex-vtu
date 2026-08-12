@@ -70,7 +70,10 @@ export default function DataPlanManagement() {
     }));
 
   const toggleGroup = (network) =>
-    setCollapsed((prev) => ({ ...prev, [network]: !prev[network] }));
+    setCollapsed((prev) => ({
+      ...prev,
+      [network]: !(prev[network] ?? true),
+    }));
 
   useEffect(() => {
     fetchPlans();
@@ -229,7 +232,7 @@ export default function DataPlanManagement() {
         ) : (
           groups.map(({ network, plans: groupPlans }) => {
             const activeCount = groupPlans.filter((p) => p.is_active).length;
-            const isCollapsed = collapsed[network];
+            const isCollapsed = collapsed[network] ?? true;
             const isEditingPrice =
               priceEditing &&
               priceEditing.plan.network === network &&
