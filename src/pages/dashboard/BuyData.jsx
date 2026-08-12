@@ -16,6 +16,7 @@ import supabase from "../../lib/supabaseClient";
 import GlassCard from "../../components/ui/GlassCard";
 import ConfirmModal from "../../components/ui/ConfirmModal";
 import Toast from "../../components/ui/Toast";
+import PurchaseSuccessModal from "../../components/ui/PurchaseSuccessModal";
 
 const NETWORK_THEME = {
   mtn: { badge: "bg-yellow-400 text-slate-900", initials: "MTN" },
@@ -110,6 +111,30 @@ async function extractFunctionErrorMessage(error) {
   return error?.message || "Something went wrong. Please try again.";
 }
 
+function extractProviderReference(provider) {
+  if (!provider || typeof provider !== "object") return null;
+  const preferred = [
+    "reference",
+    "ref",
+    "ident",
+    "transaction_id",
+    "transactionId",
+    "transaction_ref",
+    "order_id",
+    "id",
+  ];
+  for (const key of preferred) {
+    const value = provider[key];
+    if (value !== undefined && value !== null && value !== "") {
+      return String(value);
+    }
+  }
+  for (const [key, value] of Object.entries(provider)) {
+    if (/ref|ident|transaction/i.test(key) && value) return String(value);
+  }
+  return null;
+}
+
 export default function BuyData() {
   const { refreshWallet } = useAuth();
 
@@ -129,6 +154,7 @@ export default function BuyData() {
   const [purchasing, setPurchasing] = useState(false);
 
   const [toast, setToast] = useState(null);
+  const [successReceipt, setSuccessReceipt] = useState(null);
 
   useEffect(() => {
     let ignore = false;
@@ -326,10 +352,20 @@ export default function BuyData() {
       }
 
       const providerMessage = data?.provider?.api_response;
-      setToast({
-        type: "success",
-        title: "Purchase Successful",
-        message:
+      setSuccessReceipt({
+        status: "Successful",
+        network: selectedNetwork,
+        plan: selectedPlan.plan_name,
+        phone: normalizedPhone,
+        amount: formatNaira(selectedPlan.selling_price),
+        reference: data?.reference || "N/A",
+        date: new Date().toLocaleString("en-NG", {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }),
+        providerRef: extractProviderReference(data?.provider),
+        providerResponse: providerMessage,
+        summary:
           providerMessage ||
           `${selectedPlan.plan_name} sent to ${normalizedPhone} successfully.`,
       });
@@ -602,6 +638,11 @@ export default function BuyData() {
         loading={purchasing}
         onConfirm={handleConfirmPurchase}
         onCancel={() => !purchasing && setConfirmOpen(false)}
+      />
+
+      <PurchaseSuccessModal
+        receipt={successReceipt}
+        onClose={() => setSuccessReceipt(null)}
       />
     </div>
   );
