@@ -8,9 +8,56 @@ import {
   Loader2,
   ChevronDown,
   ChevronRight,
+  Percent,
 } from "lucide-react";
 import GlassCard from "../../../components/ui/GlassCard";
 import supabase from "../../../lib/supabaseClient";
+
+// Shared editable price cell — used for both the cost and sell fields in
+// each plan card so the edit/save/cancel logic only lives in one place.
+function EditablePrice({
+  plan,
+  field,
+  priceEditing,
+  priceDraft,
+  setPriceDraft,
+  savePrice,
+  handlePriceKeyDown,
+  startEditPrice,
+  formatMoney,
+  valueClassName,
+  inputClassName,
+}) {
+  const isEditingThis =
+    priceEditing?.plan.id === plan.id && priceEditing?.field === field;
+
+  if (isEditingThis) {
+    return (
+      <input
+        autoFocus
+        type="number"
+        min="0"
+        step="any"
+        value={priceDraft}
+        onChange={(e) => setPriceDraft(e.target.value)}
+        onBlur={savePrice}
+        onKeyDown={handlePriceKeyDown}
+        className={inputClassName}
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => startEditPrice(plan, field)}
+      className={valueClassName}
+      title={`Click to edit ${field === "cost_price" ? "cost" : "selling price"}`}
+    >
+      {formatMoney(plan[field])}
+    </button>
+  );
+}
 
 export default function DataPlanManagement() {
   const [plans, setPlans] = useState([]);
@@ -21,6 +68,8 @@ export default function DataPlanManagement() {
   const [priceEditing, setPriceEditing] = useState(null); // {plan, field}
   const [priceDraft, setPriceDraft] = useState("");
   const [priceSaving, setPriceSaving] = useState(false);
+  const [marginPercent, setMarginPercent] = useState("");
+  const [applyingMargin, setApplyingMargin] = useState(false);
 
   // Form State
   const [currentPlan, setCurrentPlan] = useState(null);
@@ -62,7 +111,7 @@ export default function DataPlanManagement() {
     .sort(
       (a, b) =>
         NETWORK_ORDER.indexOf(a) - NETWORK_ORDER.indexOf(b) ||
-        a.localeCompare(b)
+        a.localeCompare(b),
     )
     .map((network) => ({
       network,
@@ -191,6 +240,44 @@ export default function DataPlanManagement() {
     }
   };
 
+  // Recalculates every plan's selling price as cost + margin%, in one pass.
+  // Individual prices can still be edited by hand afterward via EditablePrice.
+  const handleApplyMarginToAll = async () => {
+    const pct = parseFloat(marginPercent);
+    if (isNaN(pct) || plans.length === 0 || applyingMargin) return;
+
+    setApplyingMargin(true);
+
+    const results = await Promise.all(
+      plans.map((plan) =>
+        supabase
+          .from("data_plans")
+          .update({
+            selling_price: Math.round(
+              Number(plan.cost_price) * (1 + pct / 100),
+            ),
+          })
+          .eq("id", plan.id),
+      ),
+    );
+
+    setApplyingMargin(false);
+
+    const failedCount = results.filter((r) => r.error).length;
+    if (failedCount > 0) {
+      alert(`Margin applied, but ${failedCount} plan(s) failed to update.`);
+    }
+
+    fetchPlans();
+  };
+
+  const handleMarginKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleApplyMarginToAll();
+    }
+  };
+
   const formatMoney = (value) =>
     Number(value).toLocaleString("en-NG", { minimumFractionDigits: 2 });
 
@@ -219,6 +306,55 @@ export default function DataPlanManagement() {
         </div>
       </GlassCard>
 
+      {/* Bulk margin control */}
+      <GlassCard className="p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-linear-to-br from-fuchsia-600 to-purple-600 flex items-center justify-center text-white shrink-0">
+              <Percent className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="font-bold text-slate-900 text-sm sm:text-base">
+                Bulk Margin
+              </h2>
+              <p className="text-xs text-slate-500">
+                Sets every plan's selling price to cost + margin%. You can still
+                edit any price individually after.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="relative">
+              <input
+                type="number"
+                step="any"
+                placeholder="5"
+                value={marginPercent}
+                onChange={(e) => setMarginPercent(e.target.value)}
+                onKeyDown={handleMarginKeyDown}
+                className="w-24 pl-3 pr-7 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-hidden focus:border-fuchsia-500"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">
+                %
+              </span>
+            </div>
+            <button
+              onClick={handleApplyMarginToAll}
+              disabled={
+                applyingMargin || marginPercent === "" || plans.length === 0
+              }
+              className="flex items-center gap-2 bg-fuchsia-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-fuchsia-700 disabled:opacity-50 transition whitespace-nowrap"
+            >
+              {applyingMargin ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                "Apply to All"
+              )}
+            </button>
+          </div>
+        </div>
+      </GlassCard>
+
       {/* Plans grouped by network */}
       <div className="space-y-4">
         {loading ? (
@@ -233,187 +369,151 @@ export default function DataPlanManagement() {
           groups.map(({ network, plans: groupPlans }) => {
             const activeCount = groupPlans.filter((p) => p.is_active).length;
             const isCollapsed = collapsed[network] ?? true;
-            const isEditingPrice =
-              priceEditing &&
-              priceEditing.plan.network === network &&
-              !isCollapsed;
 
             return (
-              <GlassCard
-                key={network}
-                className={`overflow-hidden ${isCollapsed ? "" : "overflow-x-auto"}`}
-              >
+              <GlassCard key={network} className="overflow-hidden">
                 {/* Network header (click to fold) */}
                 <button
                   type="button"
                   onClick={() => toggleGroup(network)}
-                  className="w-full flex items-center justify-between gap-3 px-6 py-4 text-left hover:bg-slate-50 transition"
+                  className="w-full flex items-center justify-between gap-2 sm:gap-3 px-4 sm:px-6 py-3 sm:py-4 text-left hover:bg-slate-50 transition"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-slate-500">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <span className="text-slate-500 shrink-0">
                       {isCollapsed ? (
                         <ChevronRight className="w-5 h-5" />
                       ) : (
                         <ChevronDown className="w-5 h-5" />
                       )}
                     </span>
-                    <div>
-                      <div className="font-bold text-slate-900">
+                    <div className="min-w-0">
+                      <div className="font-bold text-slate-900 text-sm sm:text-base">
                         {network}
                       </div>
-                      <div className="text-xs text-slate-500">
+                      <div className="text-[11px] sm:text-xs text-slate-500">
                         {groupPlans.length} plans · {activeCount} active
                       </div>
                     </div>
                   </div>
-                  <span className="inline-block px-2.5 py-1 rounded-full bg-fuchsia-50 text-fuchsia-600 text-xs font-bold">
-                    ₦{formatMoney(
+                  <span className="shrink-0 whitespace-nowrap inline-block px-2 sm:px-2.5 py-1 rounded-full bg-fuchsia-50 text-fuchsia-600 text-[11px] sm:text-xs font-bold">
+                    ₦
+                    {formatMoney(
                       groupPlans.reduce(
                         (sum, p) => sum + (Number(p.selling_price) || 0),
-                        0
-                      )
+                        0,
+                      ),
                     )}
                   </span>
                 </button>
 
                 {!isCollapsed && (
-                  <div className="border-t border-slate-100">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-50 text-[10px] md:text-xs uppercase font-bold tracking-wider text-slate-500">
-                          <th className="p-4 md:p-6">Plan</th>
-                          <th className="p-4 md:p-6">Provider (API)</th>
-                          <th className="p-4 md:p-6">Cost / Price</th>
-                          <th className="p-4 md:p-6">Profit</th>
-                          <th className="p-4 md:p-6 text-center">Status</th>
-                          <th className="p-4 md:p-6 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-fuchsia-50">
-                        {groupPlans.map((plan) => (
-                          <tr
-                            key={plan.id}
-                            className="hover:bg-fuchsia-50/50 transition"
-                          >
-                            <td className="p-4 md:p-6">
-                              <div className="font-bold text-slate-800 text-sm whitespace-nowrap">
-                                {plan.plan_name}
-                              </div>
-                            </td>
-                            <td className="p-4 md:p-6">
-                              <span className="inline-block px-2 py-1 rounded bg-slate-100 text-xs font-semibold text-slate-600">
+                  <div className="border-t border-slate-100 divide-y divide-fuchsia-100">
+                    {groupPlans.map((plan) => (
+                      <div
+                        key={plan.id}
+                        className="p-4 hover:bg-fuchsia-50/40 transition"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-bold text-slate-800 text-sm break-words">
+                              {plan.plan_name}
+                            </div>
+                            <div className="flex items-center flex-wrap gap-1.5 mt-1">
+                              <span className="inline-block px-2 py-0.5 rounded bg-slate-100 text-[11px] font-semibold text-slate-600">
                                 {plan.provider}
                               </span>
-                              <div className="text-[10px] text-slate-400 mt-1">
+                              <span className="text-[10px] text-slate-400">
                                 ID: {plan.api_plan_id}
-                              </div>
-                            </td>
-                            <td className="p-4 md:p-6">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[11px] text-slate-400">
-                                  ₦
-                                </span>
-                                {isEditingPrice &&
-                                priceEditing.plan.id === plan.id &&
-                                priceEditing.field === "cost_price" ? (
-                                  <input
-                                    autoFocus
-                                    type="number"
-                                    min="0"
-                                    step="any"
-                                    value={priceDraft}
-                                    onChange={(e) =>
-                                      setPriceDraft(e.target.value)
-                                    }
-                                    onBlur={savePrice}
-                                    onKeyDown={handlePriceKeyDown}
-                                    className="w-24 p-1 text-sm font-semibold text-slate-600 rounded-lg border border-fuchsia-400 outline-hidden focus:border-fuchsia-500"
-                                  />
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      startEditPrice(plan, "cost_price")
-                                    }
-                                    className="text-xs text-slate-500 hover:text-fuchsia-600 transition"
-                                    title="Click to edit cost"
-                                  >
-                                    {formatMoney(plan.cost_price)}
-                                  </button>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[11px] text-slate-400">
-                                  ₦
-                                </span>
-                                {isEditingPrice &&
-                                priceEditing.plan.id === plan.id &&
-                                priceEditing.field === "selling_price" ? (
-                                  <input
-                                    autoFocus
-                                    type="number"
-                                    min="0"
-                                    step="any"
-                                    value={priceDraft}
-                                    onChange={(e) =>
-                                      setPriceDraft(e.target.value)
-                                    }
-                                    onBlur={savePrice}
-                                    onKeyDown={handlePriceKeyDown}
-                                    className="w-24 p-1 text-sm font-bold text-fuchsia-600 rounded-lg border border-fuchsia-400 outline-hidden focus:border-fuchsia-500"
-                                  />
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      startEditPrice(plan, "selling_price")
-                                    }
-                                    className="text-sm font-bold text-fuchsia-600 hover:text-fuchsia-800 transition"
-                                    title="Click to edit selling price"
-                                  >
-                                    {formatMoney(plan.selling_price)}
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                            <td className="p-4 md:p-6">
-                              <span className="font-bold text-emerald-600 text-sm">
-                                +₦
-                                {formatMoney(
-                                  Number(plan.selling_price) -
-                                    Number(plan.cost_price)
-                                )}
                               </span>
-                            </td>
-                            <td className="p-4 md:p-6 text-center">
-                              <button
-                                onClick={() => handleToggleActive(plan)}
-                                className={`p-2 rounded-full transition ${plan.is_active ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200" : "bg-red-100 text-red-600 hover:bg-red-200"}`}
-                                title={
-                                  plan.is_active
-                                    ? "Click to Disable"
-                                    : "Click to Enable"
-                                }
-                              >
-                                {plan.is_active ? (
-                                  <Power className="w-4 h-4" />
-                                ) : (
-                                  <PowerOff className="w-4 h-4" />
-                                )}
-                              </button>
-                            </td>
-                            <td className="p-4 md:p-6 text-right">
-                              <button
-                                onClick={() => handleOpenModal(plan)}
-                                className="p-2 text-slate-400 hover:text-fuchsia-600 transition"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => handleToggleActive(plan)}
+                              className={`p-2 rounded-full transition ${plan.is_active ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200" : "bg-red-100 text-red-600 hover:bg-red-200"}`}
+                              title={
+                                plan.is_active
+                                  ? "Click to Disable"
+                                  : "Click to Enable"
+                              }
+                            >
+                              {plan.is_active ? (
+                                <Power className="w-4 h-4" />
+                              ) : (
+                                <PowerOff className="w-4 h-4" />
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleOpenModal(plan)}
+                              className="p-2 text-slate-400 hover:text-fuchsia-600 transition"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-100">
+                          <div className="min-w-0">
+                            <div className="text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-1">
+                              Cost
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-400 shrink-0">
+                                ₦
+                              </span>
+                              <EditablePrice
+                                plan={plan}
+                                field="cost_price"
+                                priceEditing={priceEditing}
+                                priceDraft={priceDraft}
+                                setPriceDraft={setPriceDraft}
+                                savePrice={savePrice}
+                                handlePriceKeyDown={handlePriceKeyDown}
+                                startEditPrice={startEditPrice}
+                                formatMoney={formatMoney}
+                                valueClassName="text-xs text-slate-500 hover:text-fuchsia-600 transition"
+                                inputClassName="flex-1 min-w-0 p-1 text-xs font-semibold text-slate-600 rounded-lg border border-fuchsia-400 outline-hidden focus:border-fuchsia-500"
+                              />
+                            </div>
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-1">
+                              Sell
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-400 shrink-0">
+                                ₦
+                              </span>
+                              <EditablePrice
+                                plan={plan}
+                                field="selling_price"
+                                priceEditing={priceEditing}
+                                priceDraft={priceDraft}
+                                setPriceDraft={setPriceDraft}
+                                savePrice={savePrice}
+                                handlePriceKeyDown={handlePriceKeyDown}
+                                startEditPrice={startEditPrice}
+                                formatMoney={formatMoney}
+                                valueClassName="text-xs font-bold text-fuchsia-600 hover:text-fuchsia-800 transition"
+                                inputClassName="flex-1 min-w-0 p-1 text-xs font-bold text-fuchsia-600 rounded-lg border border-fuchsia-400 outline-hidden focus:border-fuchsia-500"
+                              />
+                            </div>
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-1">
+                              Profit
+                            </div>
+                            <div className="font-bold text-emerald-600 text-xs">
+                              +₦
+                              {formatMoney(
+                                Number(plan.selling_price) -
+                                  Number(plan.cost_price),
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </GlassCard>
