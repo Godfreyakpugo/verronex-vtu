@@ -415,7 +415,7 @@ export default function DataPlanManagement() {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="font-bold text-slate-800 text-sm break-words">
+                            <div className="font-bold text-slate-800 text-sm wrap-break-words">
                               {plan.plan_name}
                             </div>
                             <div className="flex items-center flex-wrap gap-1.5 mt-1">
