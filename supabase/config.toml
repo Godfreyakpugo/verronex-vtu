@@ -428,3 +428,8 @@ entrypoint = "./functions/vtu-api/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/gladtidings-plans/index.ts"
+
+[functions.purchase-airtime]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/purchase-airtime/index.ts"
