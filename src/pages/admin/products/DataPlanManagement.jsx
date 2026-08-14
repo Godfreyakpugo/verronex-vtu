@@ -9,8 +9,14 @@ import {
   ChevronDown,
   ChevronRight,
   Percent,
+  Search,
+  RefreshCw,
+  Trash2,
+  X,
 } from "lucide-react";
 import GlassCard from "../../../components/ui/GlassCard";
+import Toast from "../../../components/ui/Toast";
+import ConfirmModal from "../../../components/ui/ConfirmModal";
 import supabase from "../../../lib/supabaseClient";
 
 // Shared editable price cell — used for both the cost and sell fields in
@@ -59,6 +65,41 @@ function EditablePrice({
   );
 }
 
+// Group plans by network in this fixed display order (recreating this array
+// on every render was wasteful — it never changes, so it lives at module scope).
+const NETWORK_ORDER = ["MTN", "Airtel", "Glo", "9Mobile", "Others"];
+
+// Maps a provider's DB slug to a friendly label for display.
+const PROVIDER_LABELS = { gladtidings: "GladTidings" };
+
+// Providers the admin can pick when adding/editing plans. Add a new entry
+// here (and a label in PROVIDER_LABELS) the day another VTU API is onboarded.
+const PROVIDERS = [{ value: "gladtidings", label: "GladTidings" }];
+
+// Gladtidings' numeric network ids, keyed by the display names used in the
+// form. Used to keep network_id populated on every plan so purchases work.
+const NETWORK_IDS = { MTN: 1, Glo: 2, Airtel: 3, "9Mobile": 6 };
+
+// Matches DEFAULT_MARKUP in scripts/import-gladtidings-plans.cjs. Used when
+// auto-adding brand-new plans pulled in by the Gladtidings price sync.
+const DEFAULT_SELL_MARKUP = 20;
+
+const getProfit = (plan) =>
+  Number(plan.selling_price) - Number(plan.cost_price);
+
+async function extractFunctionErrorMessage(error) {
+  if (error?.context && typeof error.context.json === "function") {
+    try {
+      const body = await error.context.json();
+      if (body?.error) return body.error;
+      if (body?.message) return body.message;
+    } catch {
+      // context wasn't JSON — fall through
+    }
+  }
+  return error?.message || "Something went wrong. Please try again.";
+}
+
 export default function DataPlanManagement() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -70,16 +111,30 @@ export default function DataPlanManagement() {
   const [priceSaving, setPriceSaving] = useState(false);
   const [marginPercent, setMarginPercent] = useState("");
   const [applyingMargin, setApplyingMargin] = useState(false);
+  const [confirmMarginOpen, setConfirmMarginOpen] = useState(false);
+
+  const [query, setQuery] = useState("");
+
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
+  const [syncOpen, setSyncOpen] = useState(false);
+  const [applyingSync, setApplyingSync] = useState(false);
+
+  const [toast, setToast] = useState(null);
 
   // Form State
   const [currentPlan, setCurrentPlan] = useState(null);
   const [formData, setFormData] = useState({
     network: "MTN",
     plan_name: "",
-    provider: "wazobianet",
+    provider: "gladtidings",
     api_plan_id: "",
     cost_price: 0,
     selling_price: 0,
+    validity: "",
     is_active: true,
   });
 
@@ -99,9 +154,33 @@ export default function DataPlanManagement() {
     setLoading(false);
   };
 
+  const patchPlan = (id, patch) =>
+    setPlans((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+    );
+
+  const removePlan = (id) =>
+    setPlans((prev) => prev.filter((p) => p.id !== id));
+
   // Group plans by network, preserving deterministic network order
-  const NETWORK_ORDER = ["MTN", "Airtel", "Glo", "9Mobile", "Others"];
-  const grouped = plans.reduce((acc, plan) => {
+  const q = query.trim().toLowerCase();
+  const filteredPlans = q
+    ? plans.filter((p) =>
+        [
+          p.plan_name,
+          p.network,
+          p.provider,
+          p.api_plan_id,
+          p.plan_type,
+          p.validity,
+          p.network_id,
+        ].some(
+          (field) => field != null && String(field).toLowerCase().includes(q),
+        ),
+      )
+    : plans;
+
+  const grouped = filteredPlans.reduce((acc, plan) => {
     const key = plan.network || "Others";
     (acc[key] = acc[key] || []).push(plan);
     return acc;
@@ -138,6 +217,7 @@ export default function DataPlanManagement() {
         api_plan_id: plan.api_plan_id,
         cost_price: plan.cost_price,
         selling_price: plan.selling_price,
+        validity: plan.validity ?? "",
         is_active: plan.is_active,
       });
     } else {
@@ -145,10 +225,11 @@ export default function DataPlanManagement() {
       setFormData({
         network: "MTN",
         plan_name: "",
-        provider: "wazobianet",
+        provider: "gladtidings",
         api_plan_id: "",
         cost_price: 0,
         selling_price: 0,
+        validity: "",
         is_active: true,
       });
     }
@@ -157,21 +238,59 @@ export default function DataPlanManagement() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+
+    const cost = parseFloat(formData.cost_price) || 0;
+    const selling = parseFloat(formData.selling_price) || 0;
+
+    if (selling < cost) {
+      setToast({
+        type: "error",
+        title: "Invalid pricing",
+        message: "Selling price can't be less than cost price.",
+      });
+      return;
+    }
+
+    const networkId =
+      NETWORK_IDS[formData.network] ?? (currentPlan?.network_id ?? null);
+
     setSaving(true);
 
+    const payload = {
+      ...formData,
+      cost_price: cost,
+      selling_price: selling,
+      validity: formData.validity || null,
+      network_id: networkId,
+    };
+
     if (currentPlan) {
-      // Update existing
       const { error } = await supabase
         .from("data_plans")
-        .update(formData)
+        .update(payload)
         .eq("id", currentPlan.id);
 
-      if (error) alert("Error updating plan: " + error.message);
+      if (error) {
+        setToast({ type: "error", title: "Update failed", message: error.message });
+      } else {
+        setToast({
+          type: "success",
+          title: "Plan updated",
+          message: `"${payload.plan_name}" was saved.`,
+        });
+      }
     } else {
-      // Insert new
-      const { error } = await supabase.from("data_plans").insert([formData]);
+      const { error } = await supabase.from("data_plans").insert([payload]);
 
-      if (error) alert("Error creating plan: " + error.message);
+      if (error) {
+        setToast({ type: "error", title: "Create failed", message: error.message });
+      } else {
+        setToast({
+          type: "success",
+          title: "Plan created",
+          message: `"${payload.plan_name}" was added.`,
+        });
+      }
     }
 
     setSaving(false);
@@ -180,15 +299,21 @@ export default function DataPlanManagement() {
   };
 
   const handleToggleActive = async (plan) => {
+    const next = !plan.is_active;
+    patchPlan(plan.id, { is_active: next });
+
     const { error } = await supabase
       .from("data_plans")
-      .update({ is_active: !plan.is_active })
+      .update({ is_active: next })
       .eq("id", plan.id);
 
     if (error) {
-      alert("Error toggling status: " + error.message);
-    } else {
-      fetchPlans();
+      patchPlan(plan.id, { is_active: plan.is_active });
+      setToast({
+        type: "error",
+        title: "Couldn't update status",
+        message: error.message,
+      });
     }
   };
 
@@ -213,6 +338,20 @@ export default function DataPlanManagement() {
       return;
     }
 
+    const newCost = field === "cost_price" ? value : Number(plan.cost_price);
+    const newSell =
+      field === "selling_price" ? value : Number(plan.selling_price);
+
+    if (newSell < newCost) {
+      setToast({
+        type: "error",
+        title: "Invalid pricing",
+        message: "Selling price can't be less than cost price.",
+      });
+      cancelEditPrice();
+      return;
+    }
+
     setPriceSaving(true);
 
     const { error } = await supabase
@@ -223,9 +362,9 @@ export default function DataPlanManagement() {
     setPriceSaving(false);
 
     if (error) {
-      alert("Error updating price: " + error.message);
+      setToast({ type: "error", title: "Price not saved", message: error.message });
     } else {
-      fetchPlans();
+      patchPlan(plan.id, { [field]: value });
     }
 
     cancelEditPrice();
@@ -240,34 +379,33 @@ export default function DataPlanManagement() {
     }
   };
 
-  // Recalculates every plan's selling price as cost + margin%, in one pass.
-  // Individual prices can still be edited by hand afterward via EditablePrice.
-  const handleApplyMarginToAll = async () => {
+  // Opens the confirm dialog. The actual bulk update runs in a single DB
+  // function (apply_margin_to_all) instead of one UPDATE per plan.
+  const handleApplyMarginToAll = () => {
     const pct = parseFloat(marginPercent);
     if (isNaN(pct) || plans.length === 0 || applyingMargin) return;
+    setConfirmMarginOpen(true);
+  };
+
+  const confirmApplyMargin = async () => {
+    const pct = parseFloat(marginPercent);
+    if (isNaN(pct)) return;
 
     setApplyingMargin(true);
-
-    const results = await Promise.all(
-      plans.map((plan) =>
-        supabase
-          .from("data_plans")
-          .update({
-            selling_price: Math.round(
-              Number(plan.cost_price) * (1 + pct / 100),
-            ),
-          })
-          .eq("id", plan.id),
-      ),
-    );
-
+    const { data, error } = await supabase.rpc("apply_margin_to_all", { pct });
     setApplyingMargin(false);
+    setConfirmMarginOpen(false);
 
-    const failedCount = results.filter((r) => r.error).length;
-    if (failedCount > 0) {
-      alert(`Margin applied, but ${failedCount} plan(s) failed to update.`);
+    if (error) {
+      setToast({ type: "error", title: "Margin not applied", message: error.message });
+      return;
     }
 
+    setToast({
+      type: "success",
+      title: "Margin applied",
+      message: `${data ?? 0} plan(s) set to cost + ${pct}%.`,
+    });
     fetchPlans();
   };
 
@@ -278,11 +416,192 @@ export default function DataPlanManagement() {
     }
   };
 
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+
+    setDeleting(true);
+    const { error } = await supabase
+      .from("data_plans")
+      .delete()
+      .eq("id", deleteTarget.id);
+    setDeleting(false);
+
+    if (error) {
+      setToast({ type: "error", title: "Delete failed", message: error.message });
+    } else {
+      removePlan(deleteTarget.id);
+      setToast({
+        type: "success",
+        title: "Plan deleted",
+        message: `"${deleteTarget.plan_name}" was removed.`,
+      });
+    }
+    setDeleteTarget(null);
+  };
+
+  // Pulls the latest Gladtidings catalog (via the gladtidings-plans edge
+  // function) and diffs it against the local plans so cost increases are
+  // never missed. Returns grouped changes for the review modal.
+  const handleSync = async () => {
+    setSyncing(true);
+    setToast(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "gladtidings-plans",
+      );
+
+      if (error) {
+        throw new Error(await extractFunctionErrorMessage(error));
+      }
+      if (data?.error) throw new Error(data.error);
+
+      const providerPlans = data.plans || [];
+
+      const dbMap = new Map(
+        plans
+          .filter((p) => p.provider === "gladtidings")
+          .map((p) => [p.api_plan_id, p]),
+      );
+      const providerMap = new Map(
+        providerPlans.map((p) => [p.api_plan_id, p]),
+      );
+
+      const priceChanges = [];
+      const newPlans = [];
+
+      for (const pp of providerPlans) {
+        const existing = dbMap.get(pp.api_plan_id);
+        if (!existing) {
+          newPlans.push(pp);
+          continue;
+        }
+
+        const oldCost = Number(existing.cost_price);
+        const newCost = Number(pp.cost_price);
+        const nameChanged = existing.plan_name !== pp.plan_name;
+        const validityChanged = (existing.validity || "") !== pp.validity;
+
+        if (oldCost !== newCost || nameChanged || validityChanged) {
+          priceChanges.push({
+            existing,
+            provider: pp,
+            oldCost,
+            newCost,
+            sellingPrice: Number(existing.selling_price),
+            atLoss: newCost > Number(existing.selling_price),
+          });
+        }
+      }
+
+      const removed = plans.filter(
+        (p) => p.provider === "gladtidings" && !providerMap.has(p.api_plan_id),
+      );
+
+      const hasChanges =
+        priceChanges.length > 0 || newPlans.length > 0 || removed.length > 0;
+
+      if (!hasChanges) {
+        setToast({
+          type: "success",
+          title: "All caught up",
+          message: "Gladtidings prices match your current plans.",
+        });
+        return;
+      }
+
+      setSyncResult({ priceChanges, newPlans, removed });
+      setSyncOpen(true);
+    } catch (err) {
+      setToast({
+        type: "error",
+        title: "Price check failed",
+        message: err.message,
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const confirmApplySync = async () => {
+    if (!syncResult) return;
+    setApplyingSync(true);
+
+    const updates = [];
+
+    for (const { existing, provider: pp, newCost, sellingPrice } of syncResult.priceChanges) {
+      const patch = { cost_price: newCost, plan_name: pp.plan_name, validity: pp.validity };
+      if (newCost > sellingPrice) patch.selling_price = newCost; // never sell at a loss
+      updates.push(
+        supabase.from("data_plans").update(patch).eq("id", existing.id),
+      );
+    }
+
+    for (const pp of syncResult.newPlans) {
+      updates.push(
+        supabase.from("data_plans").insert([
+          {
+            provider: pp.provider,
+            network: pp.network,
+            network_id: pp.network_id,
+            plan_name: pp.plan_name,
+            api_plan_id: pp.api_plan_id,
+            cost_price: pp.cost_price,
+            selling_price: Math.round(pp.cost_price + DEFAULT_SELL_MARKUP),
+            plan_type: pp.plan_type || null,
+            validity: pp.validity || null,
+            is_active: true,
+          },
+        ]),
+      );
+    }
+
+    for (const plan of syncResult.removed) {
+      updates.push(
+        supabase.from("data_plans").update({ is_active: false }).eq("id", plan.id),
+      );
+    }
+
+    const results = await Promise.all(updates);
+    const failed = results.filter((r) => r.error).length;
+
+    setApplyingSync(false);
+    setSyncOpen(false);
+
+    if (failed === 0) {
+      setToast({
+        type: "success",
+        title: "Prices synced",
+        message: `${updates.length} change(s) applied from Gladtidings.`,
+      });
+    } else {
+      setToast({
+        type: "error",
+        title: "Sync partially failed",
+        message: `${failed} of ${updates.length} change(s) could not be applied.`,
+      });
+    }
+    fetchPlans();
+  };
+
   const formatMoney = (value) =>
     Number(value).toLocaleString("en-NG", { minimumFractionDigits: 2 });
 
+  const syncTotal = syncResult
+    ? syncResult.priceChanges.length +
+      syncResult.newPlans.length +
+      syncResult.removed.length
+    : 0;
+
   return (
     <div className="space-y-6">
+      <Toast
+        type={toast?.type}
+        title={toast?.title}
+        message={toast?.message}
+        onDismiss={() => setToast(null)}
+      />
+
       {/* Header */}
       <GlassCard className="p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -302,6 +621,35 @@ export default function DataPlanManagement() {
             className="flex items-center gap-2 bg-fuchsia-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-fuchsia-700 transition"
           >
             <Plus className="w-4 h-4" /> Add New Plan
+          </button>
+        </div>
+      </GlassCard>
+
+      {/* Search + price check toolbar */}
+      <GlassCard className="p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="search"
+              placeholder="Search plans by name, network, validity or ID..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-hidden focus:border-fuchsia-500"
+            />
+          </div>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="flex items-center justify-center gap-2 border border-fuchsia-200 text-fuchsia-600 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-fuchsia-50 disabled:opacity-50 transition whitespace-nowrap"
+            title="Pull the latest cost prices from Gladtidings and flag any plan we'd be selling at a loss."
+          >
+            {syncing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+            Check Prices
           </button>
         </div>
       </GlassCard>
@@ -363,12 +711,12 @@ export default function DataPlanManagement() {
           </GlassCard>
         ) : groups.length === 0 ? (
           <GlassCard className="p-16 text-center text-slate-400">
-            No data plans found. Add one above.
+            {q ? "No plans match your search." : "No data plans found. Add one above."}
           </GlassCard>
         ) : (
           groups.map(({ network, plans: groupPlans }) => {
             const activeCount = groupPlans.filter((p) => p.is_active).length;
-            const isCollapsed = collapsed[network] ?? true;
+            const isCollapsed = q ? false : (collapsed[network] ?? true);
 
             return (
               <GlassCard key={network} className="overflow-hidden">
@@ -415,16 +763,22 @@ export default function DataPlanManagement() {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="font-bold text-slate-800 text-sm wrap-break-words">
+                            <div className="font-bold text-slate-800 text-sm break-words">
                               {plan.plan_name}
                             </div>
                             <div className="flex items-center flex-wrap gap-1.5 mt-1">
                               <span className="inline-block px-2 py-0.5 rounded bg-slate-100 text-[11px] font-semibold text-slate-600">
-                                {plan.provider}
+                                {PROVIDER_LABELS[plan.provider] ||
+                                  plan.provider}
                               </span>
                               <span className="text-[10px] text-slate-400">
                                 ID: {plan.api_plan_id}
                               </span>
+                              {plan.validity && (
+                                <span className="inline-block px-2 py-0.5 rounded bg-fuchsia-50 text-[11px] font-semibold text-fuchsia-600">
+                                  {plan.validity}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
@@ -436,6 +790,9 @@ export default function DataPlanManagement() {
                                   ? "Click to Disable"
                                   : "Click to Enable"
                               }
+                              aria-label={
+                                plan.is_active ? "Disable plan" : "Enable plan"
+                              }
                             >
                               {plan.is_active ? (
                                 <Power className="w-4 h-4" />
@@ -446,8 +803,18 @@ export default function DataPlanManagement() {
                             <button
                               onClick={() => handleOpenModal(plan)}
                               className="p-2 text-slate-400 hover:text-fuchsia-600 transition"
+                              title="Edit plan"
+                              aria-label="Edit plan"
                             >
                               <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteTarget(plan)}
+                              className="p-2 text-slate-400 hover:text-red-600 transition"
+                              title="Delete plan"
+                              aria-label="Delete plan"
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
@@ -503,12 +870,11 @@ export default function DataPlanManagement() {
                             <div className="text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-1">
                               Profit
                             </div>
-                            <div className="font-bold text-emerald-600 text-xs">
-                              +₦
-                              {formatMoney(
-                                Number(plan.selling_price) -
-                                  Number(plan.cost_price),
-                              )}
+                            <div
+                              className={`font-bold text-xs ${getProfit(plan) < 0 ? "text-rose-600" : "text-emerald-600"}`}
+                            >
+                              {getProfit(plan) < 0 ? "-" : "+"}₦
+                              {formatMoney(Math.abs(getProfit(plan)))}
                             </div>
                           </div>
                         </div>
@@ -587,9 +953,11 @@ export default function DataPlanManagement() {
                     }
                     className="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm outline-hidden focus:border-fuchsia-500"
                   >
-                    <option value="wazobianet">WazobiaNet</option>
-                    <option value="gladtidings">GladTidingsData</option>
-                    <option value="strongmb">StrongMB</option>
+                    {PROVIDERS.map((p) => (
+                      <option key={p.value} value={p.value}>
+                        {p.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -619,10 +987,7 @@ export default function DataPlanManagement() {
                     min="0"
                     value={formData.cost_price}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cost_price: parseFloat(e.target.value) || 0,
-                      })
+                      setFormData({ ...formData, cost_price: e.target.value })
                     }
                     className="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm outline-hidden focus:border-fuchsia-500"
                   />
@@ -639,11 +1004,41 @@ export default function DataPlanManagement() {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        selling_price: parseFloat(e.target.value) || 0,
+                        selling_price: e.target.value,
                       })
                     }
                     className="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm outline-hidden focus:border-fuchsia-500"
                   />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">
+                    Validity (e.g. 30 days)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="30 days"
+                    value={formData.validity}
+                    onChange={(e) =>
+                      setFormData({ ...formData, validity: e.target.value })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm outline-hidden focus:border-fuchsia-500"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-600 pb-2.5">
+                    <input
+                      type="checkbox"
+                      checked={formData.is_active}
+                      onChange={(e) =>
+                        setFormData({ ...formData, is_active: e.target.checked })
+                      }
+                      className="w-4 h-4 accent-fuchsia-600"
+                    />
+                    Active
+                  </label>
                 </div>
               </div>
 
@@ -668,6 +1063,169 @@ export default function DataPlanManagement() {
                 </button>
               </div>
             </form>
+          </GlassCard>
+        </div>
+      )}
+
+      {/* Bulk margin confirm */}
+      <ConfirmModal
+        open={confirmMarginOpen}
+        title="Apply margin to all plans?"
+        message={`Set every plan's selling price to cost + ${marginPercent || "0"}%.\n\nThis overwrites any custom selling prices across all ${plans.length} plans.`}
+        confirmText="Apply"
+        loading={applyingMargin}
+        onConfirm={confirmApplyMargin}
+        onCancel={() => !applyingMargin && setConfirmMarginOpen(false)}
+      />
+
+      {/* Delete confirm */}
+      <ConfirmModal
+        open={Boolean(deleteTarget)}
+        title="Delete plan?"
+        message={`"${deleteTarget?.plan_name ?? ""}" (${deleteTarget?.network ?? ""}) will be permanently removed. This cannot be undone.`}
+        confirmText="Delete"
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => !deleting && setDeleteTarget(null)}
+      />
+
+      {/* Gladtidings price sync review */}
+      {syncOpen && syncResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+          <GlassCard className="w-full max-w-2xl flex flex-col max-h-[85vh] p-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">
+                  Gladtidings price check
+                </h2>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  {syncTotal} change(s) found. Review and apply the updates
+                  below.
+                </p>
+              </div>
+              <button
+                onClick={() => setSyncOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 transition"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto min-h-0 space-y-5 pr-1">
+              {syncResult.priceChanges.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">
+                    Cost / plan updates ({syncResult.priceChanges.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {syncResult.priceChanges.map(
+                      ({ existing, provider: pp, oldCost, newCost, sellingPrice, atLoss }) => (
+                        <div
+                          key={existing.id}
+                          className="rounded-xl border border-slate-100 p-3"
+                        >
+                          <div className="font-semibold text-slate-800 text-sm">
+                            {pp.plan_name}
+                          </div>
+                          <div className="flex items-center flex-wrap gap-2 mt-1 text-xs">
+                            <span className="text-slate-400 line-through">
+                              ₦{formatMoney(oldCost)}
+                            </span>
+                            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="text-slate-700 font-semibold">
+                              ₦{formatMoney(newCost)}
+                            </span>
+                            {pp.validity && (
+                              <span className="text-slate-400">
+                                · validity: {pp.validity}
+                              </span>
+                            )}
+                          </div>
+                          {atLoss && (
+                            <p className="mt-1.5 text-[11px] font-semibold text-red-600">
+                              Selling price (₦{formatMoney(sellingPrice)}) is
+                              below the new cost — it will be raised to ₦
+                              {formatMoney(newCost)}.
+                            </p>
+                          )}
+                        </div>
+                      ),
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {syncResult.newPlans.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">
+                    New plans not in your catalog ({syncResult.newPlans.length})
+                  </h3>
+                  <p className="text-xs text-slate-500 mb-2">
+                    They will be added as active with selling price = cost + ₦
+                    {DEFAULT_SELL_MARKUP}.
+                  </p>
+                  <div className="space-y-1.5">
+                    {syncResult.newPlans.map((pp) => (
+                      <div
+                        key={pp.api_plan_id}
+                        className="rounded-lg border border-slate-100 px-3 py-2 text-sm text-slate-700"
+                      >
+                        <span className="font-semibold">{pp.plan_name}</span>{" "}
+                        <span className="text-slate-400 text-xs">
+                          ({pp.network} · ₦{formatMoney(pp.cost_price)})
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {syncResult.removed.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">
+                    No longer on Gladtidings ({syncResult.removed.length})
+                  </h3>
+                  <p className="text-xs text-slate-500 mb-2">
+                    They will be deactivated (kept for history) so they stop
+                    being sold.
+                  </p>
+                  <div className="space-y-1.5">
+                    {syncResult.removed.map((plan) => (
+                      <div
+                        key={plan.id}
+                        className="rounded-lg border border-slate-100 px-3 py-2 text-sm text-slate-700"
+                      >
+                        <span className="font-semibold">{plan.plan_name}</span>{" "}
+                        <span className="text-slate-400 text-xs">
+                          ({plan.network})
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 mt-5 pt-4 border-t border-slate-100">
+              <button
+                onClick={() => setSyncOpen(false)}
+                className="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-800"
+              >
+                Close
+              </button>
+              <button
+                onClick={confirmApplySync}
+                disabled={applyingSync}
+                className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-fuchsia-600 rounded-xl hover:bg-fuchsia-700 disabled:opacity-50"
+              >
+                {applyingSync ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "Apply Changes"
+                )}
+              </button>
+            </div>
           </GlassCard>
         </div>
       )}
