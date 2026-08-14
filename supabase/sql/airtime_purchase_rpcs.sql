@@ -51,6 +51,10 @@ declare
   v_selling numeric;
   v_balance_after numeric;
 begin
+  if p_user_id is null or p_user_id <> auth.uid() then
+    raise exception 'Not authorized.';
+  end if;
+
   v_network_id := case p_network
     when 'MTN' then 1
     when 'GLO' then 2
