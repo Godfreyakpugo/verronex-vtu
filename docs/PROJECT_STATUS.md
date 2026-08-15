@@ -2,8 +2,8 @@
 
 ## Current Provider
 
-- Gladtidings ONLY
-- Wazobia completely removed
+- Gladtidings ONLY (active for data and airtime)
+- Wazobia benched as a dormant fallback (not removed)
 
 ## Backend
 
@@ -65,6 +65,28 @@ Responsibilities:
 - refund wallet
 - mark transaction failed
 
+### start_airtime_purchase
+
+Status:
+SQL written (supabase/sql/airtime_purchase_rpcs.sql) — apply manually to the database.
+
+Responsibilities:
+
+- lock wallet
+- verify balance
+- deduct wallet
+- create pending transaction
+- return Gladtidings network_id and amount
+
+### complete_airtime_purchase
+
+Status:
+SQL written (supabase/sql/airtime_purchase_rpcs.sql) — apply manually to the database.
+
+Responsibilities:
+
+- mark pending transaction successful with provider metadata
+
 ## Edge Function
 
 purchase-data
@@ -79,6 +101,22 @@ Responsibilities:
 - call Gladtidings
 - mark transaction successful
 - call refund_purchase on failure
+
+Current deployment:
+SUCCESS
+
+purchase-airtime
+
+Status:
+Deployed successfully.
+
+Responsibilities:
+
+- authenticate user
+- call start_airtime_purchase
+- call Gladtidings
+- call complete_airtime_purchase on success
+- call refund_purchase on definitive failure
 
 Current deployment:
 SUCCESS
@@ -105,6 +143,6 @@ Imports:
 3. Purchase UI
 4. Connect purchase-data Edge Function
 5. Success/error UI
-6. Airtime implementation
+6. Airtime frontend redesign (backend done, live purchase pending)
 7. Admin product management
 8. Automatic Gladtidings price sync

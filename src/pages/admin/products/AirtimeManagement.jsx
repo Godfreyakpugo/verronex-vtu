@@ -10,6 +10,19 @@ import {
 import GlassCard from "../../../components/ui/GlassCard";
 import supabase from "../../../lib/supabaseClient";
 
+const PROVIDER_LABELS = {
+  gladtidings: "GladTidingsData",
+  wazobianet: "WazobiaNet",
+};
+
+// Only Gladtidings routes live Airtime purchases. WazobiaNet is preserved as
+// a dormant fallback (value kept for any future reactivation), StrongMB was
+// never implemented so it is not offered as a selectable option.
+const PROVIDERS = [
+  { value: "gladtidings", label: "GladTidingsData (Active)" },
+  { value: "wazobianet", label: "WazobiaNet (Dormant fallback)" },
+];
+
 export default function AirtimeManagement() {
   const [settings, setSettings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +33,7 @@ export default function AirtimeManagement() {
   const [currentNetwork, setCurrentNetwork] = useState(null);
   const [formData, setFormData] = useState({
     network: "MTN",
-    provider: "wazobianet",
+    provider: "gladtidings",
     api_network_id: "",
     admin_discount: 0,
     user_discount: 0,
@@ -61,7 +74,7 @@ export default function AirtimeManagement() {
       setCurrentNetwork(null);
       setFormData({
         network: "MTN",
-        provider: "wazobianet",
+        provider: "gladtidings",
         api_network_id: "",
         admin_discount: 0,
         user_discount: 0,
@@ -140,6 +153,20 @@ export default function AirtimeManagement() {
         </div>
       </GlassCard>
 
+      {/* Active provider notice */}
+      <GlassCard className="p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+          <span className="inline-block px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[11px] font-bold whitespace-nowrap">
+            Active provider: GladtidingsData
+          </span>
+          <p className="text-xs text-slate-500">
+            All live Airtime purchases route through Gladtidings. WazobiaNet is
+            retained only as a dormant fallback and is not used by the purchase
+            flow.
+          </p>
+        </div>
+      </GlassCard>
+
       {/* Networks Table */}
       <GlassCard className="overflow-hidden overflow-x-auto">
         <table className="w-full text-left border-collapse">
@@ -185,9 +212,20 @@ export default function AirtimeManagement() {
                       </div>
                     </td>
                     <td className="p-4 md:p-6">
-                      <span className="inline-block px-2 py-1 rounded bg-slate-100 text-xs font-semibold text-slate-600">
-                        {net.provider}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-block px-2 py-1 rounded bg-slate-100 text-xs font-semibold text-slate-600">
+                          {PROVIDER_LABELS[net.provider] || net.provider}
+                        </span>
+                        {net.provider === "gladtidings" ? (
+                          <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold">
+                            Active
+                          </span>
+                        ) : (
+                          <span className="inline-block px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold">
+                            Dormant
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[10px] text-slate-400 mt-1">
                         ID: {net.api_network_id}
                       </div>
@@ -275,10 +313,16 @@ export default function AirtimeManagement() {
                     }
                     className="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm outline-none focus:border-fuchsia-500"
                   >
-                    <option value="wazobianet">WazobiaNet</option>
-                    <option value="gladtidings">GladTidingsData</option>
-                    <option value="strongmb">StrongMB</option>
+                    {PROVIDERS.map((p) => (
+                      <option key={p.value} value={p.value}>
+                        {p.label}
+                      </option>
+                    ))}
                   </select>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Only Gladtidings is used by the live purchase flow. WazobiaNet
+                    stays as a dormant fallback.
+                  </p>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 mb-1">
@@ -296,6 +340,9 @@ export default function AirtimeManagement() {
                     }
                     className="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm outline-none focus:border-fuchsia-500"
                   />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Legacy/reference only — not used by Gladtidings routing.
+                  </p>
                 </div>
               </div>
 

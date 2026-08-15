@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Nigerian VTU (virtual top-up) platform. Wallet-first: users fund a wallet, then buy data/airtime for any Nigerian number. React 19 + Vite frontend, hosted Supabase backend (auth + Postgres + edge functions), Gladtidings is the only VTU provider (Wazobia was removed).
+Nigerian VTU (virtual top-up) platform. Wallet-first: users fund a wallet, then buy data/airtime for any Nigerian number. React 19 + Vite frontend, hosted Supabase backend (auth + Postgres + edge functions), GladtidingsData is the active VTU provider (data and airtime); WazobiaNet is benched as a dormant fallback, not removed.
 
 ## Commands
 
@@ -28,9 +28,9 @@ Nigerian VTU (virtual top-up) platform. Wallet-first: users fund a wallet, then 
 
 ## Gotchas
 
-- `src/pages/dashboard/BuyAirtime.jsx` and `src/lib/wazobiaApi.js` are stale: they call the `vtu-api` edge function whose `index.ts` is an empty stub. Only `purchase-data` is implemented and deployed. Don't assume airtime works.
+- `src/lib/wazobiaApi.js` is legacy Wazobia fallback code — it calls the `vtu-api` edge function whose `index.ts` is an empty stub. It is preserved for reference, but the active airtime page does not use it. `src/pages/dashboard/BuyAirtime.jsx` calls the `purchase-airtime` edge function (Gladtidings) instead. `purchase-data` and `purchase-airtime` are implemented and deployed; `vtu-api` remains an empty stub.
 - Edge function error messages: supabase-js v2 puts the real body on `error.context` (a Response). `BuyData.jsx` has `extractFunctionErrorMessage()` showing the pattern to reuse.
-- Edge functions use Deno with `npm:` imports (e.g. `npm:@supabase/supabase-js@2`); `config.toml` registers `vtu-api` (verify_jwt=false) but not `purchase-data`.
+- Edge functions use Deno with `npm:` imports (e.g. `npm:@supabase/supabase-js@2`); `config.toml` registers `vtu-api`, `gladtidings-plans`, and `purchase-airtime` (all verify_jwt=false). `purchase-data` is deployed but not registered in `config.toml`.
 - Tailwind v4 is CSS-first (`@import "tailwindcss"` in `src/index.css`, theme via `@theme`). `tailwind.config.cjs` is vestigial — change fonts/colors in `index.css`, not the config.
 - UI conventions: rounded cards via `GlassCard`, gradient `from-indigo-600 to-fuchsia-600` buttons/badges, lucide-react icons, font Plus Jakarta Sans. Match these in new pages.
 - `docs/PROJECT_STATUS.md` is the accurate state-of-the-world doc; `ARCHITECTURE.md`, `DATABASE.md`, `ROADMAP.md`, `CHANGELOG.md`, `API_PROVIDERS.md` are unfilled placeholders.
