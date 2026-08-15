@@ -113,6 +113,14 @@ export const STATUS_META = {
   },
   pending: { label: "Pending", badge: "bg-amber-100 text-amber-700" },
   failed: { label: "Failed", badge: "bg-red-100 text-red-600" },
+  delivered: {
+    label: "Delivered",
+    badge: "bg-emerald-100 text-emerald-700",
+  },
+  refunded: {
+    label: "Refunded",
+    badge: "bg-amber-100 text-amber-700",
+  },
 };
 
 export function isSuccessStatus(status) {

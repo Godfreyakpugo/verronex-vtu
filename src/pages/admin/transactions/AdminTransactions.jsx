@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { History, Loader2, Search, Users } from "lucide-react";
+import {
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Shield,
+  Users,
+} from "lucide-react";
 import supabase from "../../../lib/supabaseClient";
 import GlassCard from "../../../components/ui/GlassCard";
 import TransactionDetailModal from "../../../components/ui/TransactionDetailModal";
@@ -23,13 +29,15 @@ const STATUS_FILTERS = [
   { key: "successful", label: "Successful" },
   { key: "pending", label: "Pending" },
   { key: "failed", label: "Failed" },
+  { key: "delivered", label: "Delivered" },
+  { key: "refunded", label: "Refunded" },
 ];
 
 function initials(name, email) {
   const src = (name || email || "?").trim();
   const parts = src.split(/\s+/).filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return src.slice(0, 2).toUpperCase();
+  return src.slice(0, 2).toUpperCase;
 }
 
 function userFor(row) {
@@ -39,6 +47,29 @@ function userFor(row) {
     username: row.user_username,
     phone: row.user_phone,
   };
+}
+
+function StatusBadge({ status }) {
+  const meta = {
+    successful: { label: "Successful", badge: "bg-emerald-100 text-emerald-700" },
+    completed: { label: "Successful", badge: "bg-emerald-100 text-emerald-700" },
+    pending: { label: "Pending", badge: "bg-amber-100 text-amber-700" },
+    failed: { label: "Failed", badge: "bg-red-100 text-red-600" },
+    delivered: {
+      label: "Delivered",
+      badge: "bg-emerald-100 text-emerald-700",
+    },
+    refunded: {
+      label: "Refunded",
+      badge: "bg-amber-100 text-amber-700",
+    },
+  };
+  const m = meta[status] || { label: status || "Pending", badge: "bg-slate-100 text-slate-600" };
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+      <span className={m.badge}>{m.label}</span>
+    </span>
+  );
 }
 
 export default function AdminTransactions() {
@@ -71,7 +102,7 @@ export default function AdminTransactions() {
     const { data, error: err } = await supabase.rpc("admin_get_transactions", {
       p_search: debouncedSearch || null,
       p_category: category || null,
-      p_status: status || null, // RPC maps 'successful' -> successful + completed
+      p_status: status || null,
       p_limit: PAGE_SIZE + 1,
       p_offset: offset,
     });
@@ -111,6 +142,78 @@ export default function AdminTransactions() {
     runQuery(next, true, reqId);
   }
 
+  const showRefundAction = (view) => view.category === "wallet_debit";
+  const showDeliveredAction = (view) =>
+    view.category === "airtime_purchase" || view.category === "data";
+
+  async function showConfirmModal(title, onConfirm) {
+    const reason = window.prompt("Enter reason for this action:");
+    if (reason == null || reason.trim() === "") {
+      // User cancelled or entered empty reason
+      return;
+    }
+    onConfirm(reason.trim());
+  }
+
+  async function markAsDelivered(row) {
+    showConfirmModal("Mark Transaction as Delivered", async (reason) => {
+      setActing(true);
+      setActionError("");
+      try {
+        const { data, error: err } = await supabase.rpc("admin_mark_transaction_delivered", {
+          p_transaction_id: row.id,
+          p_investigation_reason: reason,
+        });
+
+        if (err) throw err;
+
+        // Refresh data
+        await fetchRequests();
+        setActing(false);
+        setSelected(null);
+        setNotice(`Transaction marked as delivered. Reason: ${reason}`);
+      } catch (err) {
+        setActionError(err?.message || "Failed to mark as delivered. Please try again.");
+        setActing(false);
+      }
+    });
+  }
+
+  async function refundTransaction(row) {
+    showConfirmModal("Refund Transaction", async (reason) => {
+      setActing(true);
+      setActionError("");
+      try {
+        const { data, error: err } = await supabase.rpc("admin_refund_transaction", {
+          p_transaction_id: row.id,
+          p_reason: reason,
+        });
+
+        if (err) throw err;
+
+        // Refresh data
+        await fetchRequests();
+        setActing(false);
+        setSelected(null);
+        setNotice(`Transaction refunded. ₹${row.amount} credited back to wallet.`);
+      } catch (err) {
+        setActionError(err?.message || "Failed to refund transaction. Please try again.");
+        setActing(false);
+      }
+    });
+  }
+
+  const [acting, setActing] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    const noticeTimeout = setTimeout(() => {
+      setNotice("");
+    }, 5000);
+    return () => clearTimeout(noticeTimeout);
+  }, [notice]);
+
   return (
     <div className="space-y-6">
       {/* Hero header */}
@@ -139,7 +242,7 @@ export default function AdminTransactions() {
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder="Search by user, reference or phone number"
-          className="w-full pl-11 pr-4 py-3 rounded-2xl border-2 border-slate-200 bg-white text-sm outline-none transition-colors focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-100"
+          className="w-full pl-11 pr-4 py-3 rounded-2xl border-2 border-slate-200 bg-white text-sm outline-none transition-colors focus:border-fuchsia-400 focus:ring-visible:ring-2 focus:ring-fuchsia-100"
         />
       </div>
 
@@ -214,6 +317,9 @@ export default function AdminTransactions() {
             {rows.map((row) => {
               const view = buildTransactionView(row);
               const Icon = view.icon;
+              const canRefund = showRefundAction(view);
+              const canDeliver = showDeliveredAction(view);
+
               return (
                 <button
                   key={row.id}
@@ -224,10 +330,7 @@ export default function AdminTransactions() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-10 h-10 rounded-full bg-linear-to-br from-indigo-500 to-fuchsia-500 text-white flex items-center justify-center text-xs font-bold shrink-0">
-                        {initials(
-                          row.user_full_name,
-                          row.user_email,
-                        )}
+                        {initials(row.user_full_name, row.user_email)}
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-slate-800 truncate">
@@ -273,6 +376,32 @@ export default function AdminTransactions() {
                       {view.statusLabel}
                     </span>
                   </div>
+
+                  {/* Action buttons — appear based on transaction category */}
+                  {(canDeliver || canRefund) && (
+                    <div className="mt-3 flex gap-2">
+                      {canDeliver && (
+                        <button
+                          type="button"
+                          onClick={() => markAsDelivered(row)}
+                          className="flex items-center gap-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 hover:brightness-110 transition-all"
+                        >
+                          <CheckCircle2 className="w-3 h-3" />
+                          Delivered
+                        </button>
+                      )}
+                      {canRefund && (
+                        <button
+                          type="button"
+                          onClick={() => refundTransaction(row)}
+                          className="flex items-center gap-1.5 rounded-xl bg-amber-600 text-white text-xs font-bold px-3 py-1.5 hover:brightness-110 transition-all"
+                        >
+                          <XCircle className="w-3 h-3" />
+                          Refund
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -303,6 +432,19 @@ export default function AdminTransactions() {
         user={selected ? userFor(selected.row) : null}
         onClose={() => setSelected(null)}
       />
+
+      {/* Notification / action feedback area */}
+      {notice && (
+        <div className="fixed top-4 right-4 GlassCard p-4 text-left">
+          <p className="text-sm text-emerald-700">{notice}</p>
+        </div>
+      )}
+
+      {actionError && (
+        <div className="fixed top-4 right-4 GlassCard p-4 text-center">
+          <p className="text-sm text-red-600">{actionError}</p>
+        </div>
+      )}
     </div>
   );
 }
