@@ -98,7 +98,7 @@ export default function FundingRequests() {
       const { data, error: err } = await supabase
         .from("funding_requests")
         .select(
-          "id, user_id, amount, reference, status, rejection_reason, processed_at, created_at, profiles(full_name, email, username, phone)",
+          "id, user_id, amount, reference, status, rejection_reason, processed_at, created_at, profiles!funding_requests_user_id_fkey(full_name, email, username, phone)",
         )
         .order("created_at", { ascending: false })
         .limit(200);
