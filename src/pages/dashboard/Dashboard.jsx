@@ -1,7 +1,12 @@
+import { useEffect, useState } from "react";
 import { Wifi, Phone, Plus, ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import supabase from "../../lib/supabaseClient";
 import GlassCard from "../../components/ui/GlassCard";
+import TransactionRow from "../../components/ui/TransactionRow";
+import TransactionDetailModal from "../../components/ui/TransactionDetailModal";
+import { buildTransactionView } from "../../lib/transactionView";
 import { ROUTES } from "../../routes";
 
 const quickActions = [
@@ -25,10 +30,39 @@ const quickActions = [
   },
 ];
 
+const RECENT_LIMIT = 5;
+
 function Dashboard() {
   const { profile, wallet } = useAuth();
+  const [recent, setRecent] = useState([]);
+  const [recentLoading, setRecentLoading] = useState(true);
+  const [selected, setSelected] = useState(null);
 
   const firstName = profile?.full_name?.split(" ")[0] ?? null;
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadRecent() {
+      setRecentLoading(true);
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(RECENT_LIMIT);
+
+      if (ignore) return;
+      if (!error) setRecent(data || []);
+      setRecentLoading(false);
+    }
+
+    loadRecent();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const recentViews = recent.map(buildTransactionView);
 
   return (
     <div className="space-y-6">
@@ -50,7 +84,7 @@ function Dashboard() {
         <div className="relative z-10 flex items-start justify-between gap-4">
           <div>
             <p className="text-xs text-purple-200 uppercase tracking-widest font-semibold mb-2">
-              Wallet Balance
+              Available Balance
             </p>
             <p className="text-4xl font-black text-white tracking-tight">
               <span className="text-fuchsia-300 mr-1 opacity-80">₦</span>
@@ -62,6 +96,7 @@ function Dashboard() {
               {profile?.user_tier === "verified"
                 ? "✓ Verified Account"
                 : "⬡ Basic Account"}
+              <span className="opacity-60">• {wallet?.currency || "NGN"}</span>
             </span>
           </div>
 
@@ -105,23 +140,56 @@ function Dashboard() {
           <h2 className="text-base font-bold text-slate-900">
             Recent Transactions
           </h2>
-          <button className="text-sm text-fuchsia-600 hover:text-fuchsia-800 font-bold transition-colors">
-            View all
-          </button>
+          <Link
+            to={ROUTES.TRANSACTIONS}
+            className="text-sm text-fuchsia-600 hover:text-fuchsia-800 font-bold transition-colors inline-flex items-center gap-1"
+          >
+            View All Transactions
+            <ArrowUpRight className="w-4 h-4" />
+          </Link>
         </div>
 
-        <GlassCard className="p-12 text-center border-slate-200/60">
-          <div className="w-14 h-14 rounded-2xl bg-linear-to-tr from-slate-100 to-slate-200 flex items-center justify-center mx-auto mb-4 shadow-inner">
-            <ArrowUpRight className="w-6 h-6 text-slate-400 stroke-[2.5]" />
-          </div>
-          <p className="text-base font-bold text-slate-700">
-            No transactions yet
-          </p>
-          <p className="text-sm text-slate-500 mt-1">
-            Fund your wallet to get started
-          </p>
-        </GlassCard>
+        {recentLoading ? (
+          <GlassCard className="divide-y divide-fuchsia-50/80">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3 p-4">
+                <div className="w-10 h-10 rounded-xl bg-slate-200 animate-pulse" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3 w-1/3 bg-slate-200 rounded animate-pulse" />
+                  <div className="h-2.5 w-1/2 bg-slate-100 rounded animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </GlassCard>
+        ) : recentViews.length === 0 ? (
+          <GlassCard className="p-12 text-center border-slate-200/60">
+            <div className="w-14 h-14 rounded-2xl bg-linear-to-tr from-slate-100 to-slate-200 flex items-center justify-center mx-auto mb-4 shadow-inner">
+              <ArrowUpRight className="w-6 h-6 text-slate-400 stroke-[2.5]" />
+            </div>
+            <p className="text-base font-bold text-slate-700">
+              No transactions yet
+            </p>
+            <p className="text-sm text-slate-500 mt-1">
+              Your Airtime, Data and wallet activity will appear here.
+            </p>
+          </GlassCard>
+        ) : (
+          <GlassCard className="divide-y divide-fuchsia-50/80">
+            {recentViews.map((view) => (
+              <TransactionRow
+                key={view.id}
+                tx={view}
+                onClick={() => setSelected(view)}
+              />
+            ))}
+          </GlassCard>
+        )}
       </div>
+
+      <TransactionDetailModal
+        view={selected}
+        onClose={() => setSelected(null)}
+      />
     </div>
   );
 }

@@ -8,12 +8,14 @@ import AuthCallback from "./pages/auth/AuthCallback";
 import FundWallet from "./pages/dashboard/FundWallet";
 import BuyData from "./pages/dashboard/BuyData";
 import BuyAirtime from "./pages/dashboard/BuyAirtime";
+import Transactions from "./pages/dashboard/Transactions";
 import "./index.css";
 
 // ✅ OUR NEW DOMAIN-DRIVEN IMPORTS
 import WalletManagement from "./pages/admin/wallet/WalletManagement";
 import UserManagement from "./pages/admin/users/UserManagement";
 import ProductsDashboard from "./pages/admin/products/ProductsDashboard";
+import AdminTransactions from "./pages/admin/transactions/AdminTransactions";
 
 function FullScreenLoader() {
   return (
@@ -87,6 +89,16 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/transactions"
+          element={
+            <ProtectedRoute>
+              <Shell>
+                <Transactions />
+              </Shell>
+            </ProtectedRoute>
+          }
+        />
 
         {/* ✅ THE MISSING ROUTES: Properly registered now */}
         <Route
@@ -122,6 +134,17 @@ export default function App() {
             <AdminRoute>
               <Shell>
                 <ProductsDashboard />
+              </Shell>
+            </AdminRoute>
+          }
+        />
+
+        <Route
+          path="/admin/transactions"
+          element={
+            <AdminRoute>
+              <Shell>
+                <AdminTransactions />
               </Shell>
             </AdminRoute>
           }
