@@ -136,7 +136,7 @@ function extractProviderReference(provider) {
 }
 
 export default function BuyData() {
-  const { refreshWallet } = useAuth();
+  const { wallet, refreshWallet } = useAuth();
 
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(true);
@@ -262,11 +262,20 @@ export default function BuyData() {
       ? "Enter a valid Nigerian phone number (e.g. 080XXXXXXXX)."
       : "";
 
+  // Wallet is only observed for UX (insufficient-balance hint). The backend
+  // remains the authoritative balance check.
+  const walletBalance = wallet ? Number(wallet.balance) || 0 : null;
+  const insufficientBalance =
+    walletBalance !== null &&
+    Boolean(selectedPlan) &&
+    Number(selectedPlan.selling_price) > walletBalance;
+
   const canSubmit =
     Boolean(selectedNetwork) &&
     Boolean(selectedPlan) &&
     phoneIsValid &&
-    !purchasing;
+    !purchasing &&
+    !insufficientBalance;
 
   function clearMessages() {
     setToast(null);
@@ -387,7 +396,7 @@ export default function BuyData() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24">
       <header>
         <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-fuchsia-600 bg-clip-text text-transparent">
           Buy Data
@@ -595,29 +604,73 @@ export default function BuyData() {
           </div>
         </div>
 
-        {/* Buy button */}
-        <div className="pt-5">
-          <button
-            type="button"
-            disabled={!canSubmit}
-            onClick={handleOpenConfirm}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white font-semibold py-3 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
-          >
-            {purchasing ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <Wifi className="w-4 h-4" />
-                Buy Data
-                <ChevronRight className="w-4 h-4" />
-              </>
-            )}
-          </button>
-        </div>
+        {/* The purchase action lives in the floating action bar below. */}
+
       </GlassCard>
+
+      {/* Floating purchase action — stays reachable while scrolling the plan
+          list. Positioned fixed against the visual viewport: when the mobile
+          keyboard opens the viewport shrinks and the bar rides above it.
+          env(safe-area-inset-bottom) keeps it clear of notches/home bars. */}
+      <div className="fixed inset-x-0 bottom-0 z-30 px-4 pb-[max(env(safe-area-inset-bottom),0.75rem)] lg:left-64 lg:px-6 pointer-events-none">
+        <GlassCard
+          className={`mx-auto max-w-4xl w-full px-4 py-3 sm:px-5 pointer-events-auto transition-all duration-200 ${
+            selectedPlan ? "shadow-[0_14px_40px_rgba(236,72,153,0.22)]" : "opacity-80"
+          }`}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              {selectedPlan ? (
+                <>
+                  <p className="text-sm font-semibold text-slate-800 truncate">
+                    {selectedNetwork} • {selectedPlan.plan_name}
+                  </p>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p
+                      className={`text-sm font-bold ${
+                        insufficientBalance
+                          ? "text-red-600"
+                          : "text-fuchsia-600"
+                      }`}
+                    >
+                      {formatNaira(selectedPlan.selling_price)}
+                    </p>
+                    {insufficientBalance && (
+                      <span className="text-[11px] font-medium text-red-600 truncate">
+                        Insufficient wallet balance
+                      </span>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-slate-500">
+                  Select a data plan to continue
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              disabled={!canSubmit}
+              onClick={handleOpenConfirm}
+              className="shrink-0 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white text-sm font-semibold px-5 py-2.5 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
+            >
+              {purchasing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Wifi className="w-4 h-4" />
+                  Buy Data
+                  <ChevronRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </div>
+        </GlassCard>
+      </div>
 
       <ConfirmModal
         open={confirmOpen}
