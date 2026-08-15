@@ -101,6 +101,17 @@ export default function App() {
           }
         />
 
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Shell>
+                <SettingsPage />
+              </Shell>
+            </ProtectedRoute>
+          }
+        />
+
         {/* ✅ THE MISSING ROUTES: Properly registered now */}
         <Route
           path="/admin"
