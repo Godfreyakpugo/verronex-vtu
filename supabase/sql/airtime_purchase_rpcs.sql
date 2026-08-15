@@ -167,6 +167,7 @@ end;
 $$;
 
 revoke execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) from public;
+revoke execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) from anon;
 grant execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) to authenticated;
 grant execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) to service_role;
 
@@ -223,5 +224,6 @@ end;
 $$;
 
 revoke execute on function public.complete_airtime_purchase(text, jsonb) from public;
+revoke execute on function public.complete_airtime_purchase(text, jsonb) from anon;
 grant execute on function public.complete_airtime_purchase(text, jsonb) to authenticated;
 grant execute on function public.complete_airtime_purchase(text, jsonb) to service_role;
