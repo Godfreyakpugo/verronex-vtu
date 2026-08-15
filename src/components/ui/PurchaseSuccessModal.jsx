@@ -76,7 +76,10 @@ export default function PurchaseSuccessModal({ receipt, onClose }) {
 
             <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
               <ReceiptRow label="Network" value={receipt.network} />
-              <ReceiptRow label="Data plan" value={receipt.plan} />
+              <ReceiptRow
+                label={receipt.planLabel || "Data plan"}
+                value={receipt.plan}
+              />
               <ReceiptRow label="Recipient phone" value={receipt.phone} />
               <ReceiptRow label="Amount paid" value={receipt.amount} />
               <ReceiptRow label="Reference" value={receipt.reference} />
