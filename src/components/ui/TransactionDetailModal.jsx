@@ -8,7 +8,7 @@ function Row({ label, value }) {
   return (
     <div className="flex items-start justify-between gap-4 py-2.5 border-b border-slate-100 last:border-0">
       <span className="text-sm text-slate-500 shrink-0">{label}</span>
-      <span className="text-sm font-semibold text-slate-800 text-right break-words min-w-0">
+      <span className="text-sm font-semibold text-slate-800 text-right wrap-break-word min-w-0">
         {value}
       </span>
     </div>
@@ -128,22 +128,29 @@ export default function TransactionDetailModal({ view, user, onClose }) {
           <Row label="Type" value={view.title} />
           {showNetwork && <Row label="Network" value={view.network} />}
           {showPlan && (
-            <Row label={view.category === "data" ? "Data plan" : "Plan"} value={view.plan} />
+            <Row
+              label={view.category === "data" ? "Data plan" : "Plan"}
+              value={view.plan}
+            />
           )}
           {showPhone && <Row label="Recipient phone" value={view.phone} />}
           {view.category === "airtime_purchase" && view.faceValue != null && (
             <Row label="Airtime" value={formatNaira(view.faceValue)} />
           )}
-          <Row label={view.credit ? "Amount credited" : "Amount paid"} value={formatNaira(view.amount)} />
+          <Row
+            label={view.credit ? "Amount credited" : "Amount paid"}
+            value={formatNaira(view.amount)}
+          />
           {view.balanceBefore != null && (
-            <Row label="Balance before" value={formatNaira(view.balanceBefore)} />
+            <Row
+              label="Balance before"
+              value={formatNaira(view.balanceBefore)}
+            />
           )}
           {view.balanceAfter != null && (
             <Row label="Balance after" value={formatNaira(view.balanceAfter)} />
           )}
-          {view.description && (
-            <Row label="Details" value={view.description} />
-          )}
+          {view.description && <Row label="Details" value={view.description} />}
           <ReferenceRow value={view.reference} />
           {showProviderRef && (
             <Row label="Provider reference" value={String(view.providerRef)} />
@@ -156,7 +163,7 @@ export default function TransactionDetailModal({ view, user, onClose }) {
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
               Provider response
             </p>
-            <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2.5 text-xs text-slate-500 break-words">
+            <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2.5 text-xs text-slate-500 break-word">
               {view.providerResponse}
             </div>
           </div>
@@ -165,7 +172,7 @@ export default function TransactionDetailModal({ view, user, onClose }) {
         <button
           type="button"
           onClick={onClose}
-          className="mt-5 w-full rounded-xl bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white font-semibold py-3 hover:opacity-90 transition-opacity"
+          className="mt-5 w-full rounded-xl bg-linear-to-r from-indigo-600 to-fuchsia-600 text-white font-semibold py-3 hover:opacity-90 transition-opacity"
         >
           Done
         </button>
