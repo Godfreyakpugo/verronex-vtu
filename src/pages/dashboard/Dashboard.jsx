@@ -33,7 +33,7 @@ const quickActions = [
 const RECENT_LIMIT = 5;
 
 function Dashboard() {
-  const { profile, wallet } = useAuth();
+  const { profile, wallet, refreshWallet } = useAuth();
   const [recent, setRecent] = useState([]);
   const [recentLoading, setRecentLoading] = useState(true);
   const [selected, setSelected] = useState(null);
@@ -42,6 +42,8 @@ function Dashboard() {
 
   useEffect(() => {
     let ignore = false;
+
+    refreshWallet();
 
     async function loadRecent() {
       setRecentLoading(true);
@@ -60,7 +62,7 @@ function Dashboard() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [refreshWallet]);
 
   const recentViews = recent.map(buildTransactionView);
 

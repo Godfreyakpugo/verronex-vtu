@@ -112,6 +112,23 @@ function Sidebar({ open, onClose }) {
               </NavLink>
 
               <NavLink
+                to="/admin/funding"
+                onClick={onClose}
+                className={({ isActive }) => `
+                  flex items-center gap-3 px-3 py-2.5 rounded-xl
+                  text-sm font-semibold transition-all duration-150 mt-1
+                  ${
+                    isActive
+                      ? "bg-linear-to-r from-indigo-900 via-purple-800 to-fuchsia-700 text-white shadow-md shadow-purple-900/25"
+                      : "bg-linear-to-r from-indigo-900/8 via-purple-800/8 to-fuchsia-700/8 text-purple-700 border border-purple-200/50 hover:border-purple-300/70"
+                  }
+                `}
+              >
+                <Wallet className="w-4 h-4 shrink-0" />
+                Funding Requests
+              </NavLink>
+
+              <NavLink
                 to="/admin/users"
                 onClick={onClose}
                 className={({ isActive }) => `

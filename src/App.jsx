@@ -13,6 +13,7 @@ import "./index.css";
 
 // ✅ OUR NEW DOMAIN-DRIVEN IMPORTS
 import WalletManagement from "./pages/admin/wallet/WalletManagement";
+import FundingRequests from "./pages/admin/wallet/FundingRequests";
 import UserManagement from "./pages/admin/users/UserManagement";
 import ProductsDashboard from "./pages/admin/products/ProductsDashboard";
 import AdminTransactions from "./pages/admin/transactions/AdminTransactions";
@@ -112,6 +113,17 @@ export default function App() {
             <AdminRoute>
               <Shell>
                 <WalletManagement />
+              </Shell>
+            </AdminRoute>
+          }
+        />
+
+        <Route
+          path="/admin/funding"
+          element={
+            <AdminRoute>
+              <Shell>
+                <FundingRequests />
               </Shell>
             </AdminRoute>
           }
