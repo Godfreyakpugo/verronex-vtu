@@ -3,11 +3,13 @@ import { Menu, Bell, Image, X } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import GlassCard from "../../components/ui/GlassCard";
 import BrandLogo from "../ui/BrandLogo";
+import NotificationCenter from "../../components/ui/NotificationCenter";
 
 function Navbar({ onMenuClick }) {
   const { profile, wallet, signOut } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
+  const [notificationsModalOpen, setNotificationsModalOpen] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
 
   // Sticky shadow on scroll
@@ -88,37 +90,23 @@ function Navbar({ onMenuClick }) {
           </span>
         </div>
 
-        {/* Bell */}
-        <button className="p-2 rounded-xl hover:bg-fuchsia-50 text-slate-400 transition-colors relative">
+        {/* Bell — opens notification center */}
+        <button
+          onClick={() => setNotificationsModalOpen(true)}
+          className="p-2 rounded-xl hover:bg-fuchsia-50 text-slate-400 transition-colors relative"
+        >
           <Bell className="w-5 h-5" />
+          {notificationsModalOpen && (
+            <X className="absolute -top-1 -right-1 w-4 h-4 text-slate-400" />
+          )}
         </button>
 
-        {/* Avatar modal */}
-        {avatarModalOpen && (
-          <GlassCard className="absolute inset-0 bg-black/40 backdrop-blur-sm fixed top-0 left-0 right-0 bottom-0 z-50 flex items-center justify-center p-4">
-            <GlassCard className="w-full max-w-sm p-6 rounded-2xl flex flex-col items-center gap-4">
-              <h3 className="text font-bold text-slate-800">Profile Picture</h3>
-              {imageUri ? (
-                <img
-                  src={imageUri}
-                  className="w-20 h-20 rounded-full object-cover mb-4"
-                />
-              ) : (
-                <div className="w-20 h-20 rounded-full bg-slate-200 mb-4"></div>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  const reader = new FileReader();
-                  reader.onload = (e) => setImageUri(e.target.result);
-                  reader.readAsDataURL(file);
-                }}
-                className="mt-2 w-full bg-fuchsia-50/50 border border-fuchsia-100 focus:border-fuchsia-400 focus:bg-white rounded-xl py-2 text-sm text-slate-700 cursor-pointer"
-              /></GlassCard>
-          </GlassCard>
+        {/* Notification center modal */}
+        {notificationsModalOpen && (
+          <NotificationCenter
+            open={notificationsModalOpen}
+            onClose={() => setNotificationsModalOpen(false)}
+          />
         )}
 
         {/* Sign out */}
