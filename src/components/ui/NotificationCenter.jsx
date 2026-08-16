@@ -4,7 +4,7 @@ import { Bell, Check, X } from "lucide-react";
 import GlassCard from "../../components/ui/GlassCard";
 import { formatNaira } from "../../lib/transactionView";
 
-function NotificationCenter() {
+function NotificationCenter({ open, onClose }) {
   const { profile } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -85,20 +85,29 @@ function NotificationCenter() {
     ).length;
     setUnreadCount(unread);
 
-    // Subscribe to real-time changes
-    const { data: subscription } = supabase
-      .channel("notifications-changes")
-      .on(
+    // Subscribe to real-time changes — gracefully fail if supabase.channel is unavailable
+    let subscription;
+    try {
+      subscription = supabase.channel("notifications-changes");
+    } catch (e) {
+      // supabase.channel not available (e.g., no realtime, wrong client) — continue without realtime
+      subscription = null;
+    }
+
+    if (subscription) {
+      subscription.on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "notifications",
-          filter: `user_id=eq.${profile?.id}`,
+          // safely coerce profile id to string; avoid breaking PostgREST filter
+          filter: profile?.id ? `user_id=eq.${profile.id}` : undefined,
         },
         (payload) => {
           const newNotification = payload.new;
-            setNotifications((prev) => [newNotification, ...prev]);
+          if (!newNotification) return;
+          setNotifications((prev) => [newNotification, ...prev]);
           setUnreadCount((prev) => {
             const isUnread = !newNotification.read_at;
             return prev + (isUnread ? 1 : 0);
@@ -106,10 +115,13 @@ function NotificationCenter() {
         },
       )
       .subscribe();
+    }
 
     return () => {
       mountRef.current = false;
-      subscription.unsubscribe();
+      if (subscription && typeof subscription.unsubscribe === "function") {
+        subscription.unsubscribe();
+      }
     };
   }, [profile?.id, notifications]);
 
