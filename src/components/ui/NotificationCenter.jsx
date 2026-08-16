@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
+import { useAuth } from "../../context/AuthContext";
 import supabase from "../../lib/supabaseClient";
-import { Bell, Check, X } from "lucide-react";
+import { Check } from "lucide-react";
 import GlassCard from "../../components/ui/GlassCard";
-import { formatNaira } from "../../lib/transactionView";
 
 function NotificationCenter({ open, onClose }) {
   const { profile } = useAuth();

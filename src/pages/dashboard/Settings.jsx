@@ -1,19 +1,14 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Users,
   Lock,
-  Mail,
-  Phone,
-  Settings,
   Camera,
-  Image,
-  X,
-  Check,
+  Edit,
 } from "lucide-react";
+import supabase from "../../lib/supabaseClient";
 import GlassCard from "../../components/ui/GlassCard";
-import { formatNaira } from "../../lib/transactionView";
 
 function SettingsPage() {
   const { profile, wallet, refreshProfile, refreshWallet } = useAuth();

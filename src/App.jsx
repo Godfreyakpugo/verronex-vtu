@@ -9,6 +9,7 @@ import FundWallet from "./pages/dashboard/FundWallet";
 import BuyData from "./pages/dashboard/BuyData";
 import BuyAirtime from "./pages/dashboard/BuyAirtime";
 import Transactions from "./pages/dashboard/Transactions";
+import SettingsPage from "./pages/dashboard/Settings";
 import "./index.css";
 
 // ✅ OUR NEW DOMAIN-DRIVEN IMPORTS

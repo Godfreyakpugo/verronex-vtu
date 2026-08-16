@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-import { Menu, Bell, Image, X } from "lucide-react";
+import { Menu, Bell, X } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import GlassCard from "../../components/ui/GlassCard";
 import BrandLogo from "../ui/BrandLogo";
 import NotificationCenter from "../../components/ui/NotificationCenter";
 
@@ -10,7 +9,6 @@ function Navbar({ onMenuClick }) {
   const [scrolled, setScrolled] = useState(false);
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
   const [notificationsModalOpen, setNotificationsModalOpen] = useState(false);
-  const [imageUri, setImageUri] = useState<string | null>(null);
 
   // Sticky shadow on scroll
   useEffect(() => {

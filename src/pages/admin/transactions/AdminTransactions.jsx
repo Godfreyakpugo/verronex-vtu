@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
   XCircle,
-  Clock,
-  Shield,
   Users,
+  History,
+  Search,
+  Loader2,
 } from "lucide-react";
 import supabase from "../../../lib/supabaseClient";
 import GlassCard from "../../../components/ui/GlassCard";
@@ -37,7 +38,7 @@ function initials(name, email) {
   const src = (name || email || "?").trim();
   const parts = src.split(/\s+/).filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return src.slice(0, 2).toUpperCase;
+  return src.slice(0, 2).toUpperCase();
 }
 
 function userFor(row) {
@@ -168,7 +169,7 @@ export default function AdminTransactions() {
         if (err) throw err;
 
         // Refresh data
-        await fetchRequests();
+        await runQuery(0, false, ++latestReq.current);
         setActing(false);
         setSelected(null);
         setNotice(`Transaction marked as delivered. Reason: ${reason}`);
@@ -192,7 +193,7 @@ export default function AdminTransactions() {
         if (err) throw err;
 
         // Refresh data
-        await fetchRequests();
+        await runQuery(0, false, ++latestReq.current);
         setActing(false);
         setSelected(null);
         setNotice(`Transaction refunded. ₹${row.amount} credited back to wallet.`);
