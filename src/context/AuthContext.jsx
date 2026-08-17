@@ -51,8 +51,9 @@ export function AuthProvider({ children }) {
   // ── Shared hydration logic ───────────────────────────────────────────────────
   const hydrateUserData = useCallback(
     async (userId, isNewSignIn = false) => {
+      let profileData = null;
+
       if (isNewSignIn) {
-        let profileData = null;
         let attempts = 0;
 
         while (!profileData && attempts < 10) {
@@ -62,20 +63,26 @@ export function AuthProvider({ children }) {
             await new Promise((resolve) => setTimeout(resolve, 300));
           }
         }
-
-        const walletData = await fetchWallet(userId);
-        setProfile(profileData);
-        setWallet(walletData);
-        return;
+      } else {
+        profileData = await fetchProfile(userId);
       }
 
-      const [profileData, walletData] = await Promise.all([
-        fetchProfile(userId),
-        fetchWallet(userId),
-      ]);
+      // Deactivated accounts must not get a working session. The profile is
+      // read with the caller's own JWT through RLS, then the session is
+      // actively revoked rather than just hidden in the UI.
+      if (profileData?.deactivated_at) {
+        await supabase.auth.signOut();
+        setUser(null);
+        setSession(null);
+        setProfile(null);
+        setWallet(null);
+        return null;
+      }
 
+      const walletData = await fetchWallet(userId);
       setProfile(profileData);
       setWallet(walletData);
+      return profileData;
     },
     [fetchProfile, fetchWallet],
   );
@@ -157,6 +164,17 @@ export function AuthProvider({ children }) {
       password,
     });
     if (error) throw error;
+
+    // Reject deactivated accounts: read the profile with this user's own
+    // authenticated session and refuse login if the account was deactivated.
+    const profileData = await fetchProfile(data.user.id);
+    if (profileData?.deactivated_at) {
+      await supabase.auth.signOut();
+      throw new Error(
+        "This account has been deactivated. Please contact support.",
+      );
+    }
+
     return data;
   };
 

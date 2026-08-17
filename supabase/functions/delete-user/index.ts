@@ -54,7 +54,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Service-role client: bypasses RLS for ledger reads + auth admin delete
+    // Service-role client: bypasses RLS for profile + ledger reads.
+    // The auth identity is intentionally NOT deleted — deactivating the
+    // profile preserves the financial ledger (auth.users -> profiles has
+    // ON DELETE CASCADE to wallets/transactions/funding_requests).
     const serviceClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -100,7 +103,7 @@ Deno.serve(async (req) => {
     // Self-delete protection (server-side, cannot be bypassed from the UI)
     if (targetUserId === adminUser.id) {
       return Response.json(
-        { error: "You cannot remove your own account." },
+        { error: "You cannot deactivate your own account." },
         { status: 400, headers: corsHeaders }
       );
     }
@@ -126,19 +129,19 @@ Deno.serve(async (req) => {
     }
     if (target.deactivated_at) {
       return Response.json(
-        { error: "This user has already been removed." },
+        { error: "This user has already been deactivated." },
         { status: 409, headers: corsHeaders }
       );
     }
     if (target.is_admin) {
       return Response.json(
-        { error: "Administrator accounts cannot be removed." },
+        { error: "Administrator accounts cannot be deactivated." },
         { status: 400, headers: corsHeaders }
       );
     }
 
-    // Financial safety checks — block removal if the account has unresolved
-    // money or pending operations. Ledger rows are preserved, never deleted.
+    // Financial safety checks — block deactivation if the account has unresolved
+    // money or pending operations. All ledger rows are preserved, never deleted.
     const problems: string[] = [];
 
     const { data: wallet, error: walletError } = await serviceClient
@@ -198,16 +201,17 @@ Deno.serve(async (req) => {
       return Response.json(
         {
           error:
-            "Cannot remove this user.\n\n" +
+            "Cannot deactivate this user.\n\n" +
             "This account has:\n" +
             problems.map((p) => `• ${p}`).join("\n") +
-            "\n\nResolve these items before removal.",
+            "\n\nResolve these items before deactivation.",
         },
         { status: 409, headers: corsHeaders }
       );
     }
 
-    // 1. Mark the profile as removed (keeps ledger rows, removes from active list)
+    // Deactivate the profile — keeps the profile, auth identity, wallet and
+    // all financial history intact while removing the account from active use.
     const { error: markError } = await serviceClient
       .from("profiles")
       .update({ deactivated_at: new Date().toISOString() })
@@ -220,28 +224,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Delete the auth identity so the account can never log in again.
-    //    (No FK from profiles to auth.users, so ledger rows stay intact.)
-    const { error: deleteError } = await serviceClient.auth.admin.deleteUser(
-      targetUserId
-    );
-
-    if (deleteError) {
-      // Roll back the deactivation marker so the user is not left half-removed
-      await serviceClient
-        .from("profiles")
-        .update({ deactivated_at: null })
-        .eq("id", targetUserId);
-      return Response.json(
-        { error: `Failed to delete the user's sign-in. ${deleteError.message}` },
-        { status: 500, headers: corsHeaders }
-      );
-    }
-
     return Response.json(
       {
         success: true,
-        message: "User removed.",
+        message: "User deactivated successfully.",
         user_id: targetUserId,
       },
       { headers: corsHeaders }

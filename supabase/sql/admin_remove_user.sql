@@ -4,18 +4,21 @@
 -- Safe removal model: deactivate instead of hard-delete.
 --
 -- Why:
---   wallets.user_id, transactions.user_id, funding_requests.user_id and
---   notifications.user_id all reference profiles.id with ON DELETE CASCADE.
---   Hard-deleting a profile row would cascade-delete the entire financial
---   ledger (transactions, funding requests, wallet). That destroys financial
---   history, which is not acceptable.
+--   wallets.user_id, transactions.user_id, funding_requests.user_id all
+--   reference profiles.id with ON DELETE CASCADE, and profiles.id references
+--   auth.users.id with ON DELETE CASCADE (profiles_id_fkey).
 --
---   Instead we:
+--   Deleting the auth identity would therefore cascade: auth.users -> profiles
+--   -> wallets/transactions/funding_requests — destroying the entire financial
+--   ledger. That is why user removal DEACTIVATES the account instead:
+--
 --     1. add profiles.deactivated_at (nullable) — marks the account removed
 --     2. exclude deactivated profiles from admin_get_users
---     3. the delete-user edge function deletes the auth.users identity via the
---        Admin Auth API (service-role, server-side) to permanently block login
---        while keeping all ledger rows intact.
+--     3. the delete-user edge function sets profiles.deactivated_at and KEEPS
+--        the auth identity + all profile/wallet/transaction/funding rows so
+--        the financial ledger and audit history are preserved.
+--     4. login is rejected for deactivated profiles (AuthContext reads the
+--        profile with the caller's JWT and revokes the session).
 --
 -- Apply each statement individually to the live Supabase project.
 --

@@ -231,13 +231,13 @@ export default function UserListItem({
 
       <ConfirmModal
         open={showRemoveModal}
-        title="Remove User?"
-        message={`You are about to remove:\n\n${user.full_name || "Unknown User"}\n${
+        title="Deactivate User?"
+        message={`You are about to deactivate:\n\n${user.full_name || "Unknown User"}\n${
           user.email || ""
-        }\n@${user.username || "no username"}\n\nThis action cannot be undone. The user will no longer be able to sign in and will be removed from your active user list.${
+        }\n@${user.username || "no username"}\n\nThis user will no longer be able to sign in and will disappear from your active user list. Their profile and financial history will be preserved.${
           removeError ? `\n\n${removeError}` : ""
         }`}
-        confirmText="Remove User"
+        confirmText="Deactivate User"
         danger
         loading={isRemoving}
         onConfirm={handleRemoveUser}
