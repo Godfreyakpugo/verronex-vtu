@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Users, Loader2, PieChart } from "lucide-react";
+import { Users, Loader2 } from "lucide-react";
 import GlassCard from "../../../components/ui/GlassCard";
 import supabase from "../../../lib/supabaseClient";
 import UserFilters from "./UserFilters";
@@ -129,50 +129,35 @@ export default function UserManagement() {
       </GlassCard>
 
       {/* User Summary */}
-      <GlassCard className="p-6">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-xl bg-linear-to-br from-indigo-600 to-fuchsia-600 flex items-center justify-center text-white shrink-0">
-            <PieChart className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="font-black text-slate-900">User Summary</h2>
-            <p className="text-sm text-slate-500">
-              Live counts of active users.
-            </p>
-          </div>
-        </div>
-
+      <div className="flex flex-wrap items-center gap-2">
         {summaryLoading ? (
-          <div className="flex justify-center py-6">
-            <Loader2 className="animate-spin w-6 h-6 text-fuchsia-600" />
-          </div>
+          <span className="inline-flex items-center gap-2 rounded-lg border border-fuchsia-100 bg-white/60 px-3 py-1.5">
+            <Loader2 className="animate-spin w-3.5 h-3.5 text-fuchsia-600" />
+          </span>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <div className="rounded-2xl bg-linear-to-br from-indigo-600 to-fuchsia-600 text-white p-5">
-              <p className="text-xs font-bold uppercase tracking-wider text-white/80">
-                Total Users
-              </p>
-              <p className="text-3xl font-black mt-1">
+          <>
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-fuchsia-100 bg-fuchsia-50/60 px-3 py-1.5 text-xs font-bold text-slate-800">
+              <Users className="w-3.5 h-3.5 text-fuchsia-600" />
+              Users{" "}
+              <span className="text-fuchsia-600">
                 {totalUsers.toLocaleString("en-NG")}
-              </p>
-            </div>
+              </span>
+            </span>
 
             {summary.map((row) => (
-              <div
+              <span
                 key={row.user_tier || "unknown"}
-                className="rounded-2xl border border-fuchsia-100 bg-fuchsia-50/60 p-5"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-fuchsia-100 bg-fuchsia-50/60 px-3 py-1.5 text-xs font-bold text-slate-800"
               >
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  {TIER_LABELS[row.user_tier] || row.user_tier}
-                </p>
-                <p className="text-3xl font-black text-slate-900 mt-1">
+                {TIER_LABELS[row.user_tier] || row.user_tier}{" "}
+                <span className="text-fuchsia-600">
                   {Number(row.active_count || 0).toLocaleString("en-NG")}
-                </p>
-              </div>
+                </span>
+              </span>
             ))}
-          </div>
+          </>
         )}
-      </GlassCard>
+      </div>
 
       <GlassCard className="overflow-hidden">
         {/* Responsive Table Headers */}
