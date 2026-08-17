@@ -9,14 +9,30 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import supabase from "../../../lib/supabaseClient";
+import ConfirmModal from "../../../components/ui/ConfirmModal";
+import { useAuth } from "../../../context/AuthContext";
 
 const formatMoney = (value) =>
   Number(value || 0).toLocaleString("en-NG", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+
+async function extractFunctionErrorMessage(error) {
+  if (error?.context && typeof error.context.json === "function") {
+    try {
+      const body = await error.context.json();
+      if (body?.error) return body.error;
+      if (body?.message) return body.message;
+    } catch {
+      // fall through
+    }
+  }
+  return error?.message || "Something went wrong. Please try again.";
+}
 
 export default function UserListItem({
   user,
@@ -25,13 +41,19 @@ export default function UserListItem({
   onUserUpdated,
 }) {
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState("");
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
 
   const role = user.is_admin
     ? "Admin"
     : user.user_tier === "agent"
       ? "Agent"
       : "Basic";
+
+  const isSelf = currentUser?.id === user.id;
 
   const handleToggleAgent = async (currentTier) => {
     // Determine what action we are taking to make the alert message clear
@@ -66,6 +88,25 @@ export default function UserListItem({
   const handleAdjustWallet = () => {
     // Navigate to the wallet page and pass the user object in router state
     navigate("/admin/wallet", { state: { prefilledUser: user } });
+  };
+
+  const handleRemoveUser = async () => {
+    setIsRemoving(true);
+    setRemoveError("");
+
+    const { error } = await supabase.functions.invoke("delete-user", {
+      body: { target_user_id: user.id },
+    });
+
+    if (error) {
+      setRemoveError(await extractFunctionErrorMessage(error));
+      setIsRemoving(false);
+      return;
+    }
+
+    setIsRemoving(false);
+    setShowRemoveModal(false);
+    onUserUpdated();
   };
 
   return (
@@ -171,9 +212,39 @@ export default function UserListItem({
                   : "Promote to Agent"}
               </button>
             )}
+
+            {!user.is_admin && !isSelf && (
+              <button
+                onClick={() => {
+                  setRemoveError("");
+                  setShowRemoveModal(true);
+                }}
+                className="rounded-xl border-2 border-red-200 text-red-600 px-5 py-2 text-sm font-semibold hover:bg-red-50 transition flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Remove User
+              </button>
+            )}
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={showRemoveModal}
+        title="Remove User?"
+        message={`You are about to remove:\n\n${user.full_name || "Unknown User"}\n${
+          user.email || ""
+        }\n@${user.username || "no username"}\n\nThis action cannot be undone. The user will no longer be able to sign in and will be removed from your active user list.${
+          removeError ? `\n\n${removeError}` : ""
+        }`}
+        confirmText="Remove User"
+        danger
+        loading={isRemoving}
+        onConfirm={handleRemoveUser}
+        onCancel={() => {
+          if (!isRemoving) setShowRemoveModal(false);
+        }}
+      />
     </div>
   );
 }
