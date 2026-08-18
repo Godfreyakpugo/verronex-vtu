@@ -77,12 +77,6 @@ function AdminNotifications() {
   const createAnnouncement = async () => {
     setError(null);
     try {
-      const { error } = await supabase.rpc("update_user_avatar", {
-        p_user_id: profile?.id,
-        p_avatar_url: "",
-      });
-      if (error) throw error;
-
       const { data, error: insertError } = await supabase
         .from("notifications")
         .insert({
