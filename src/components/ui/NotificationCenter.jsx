@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
 import supabase from "../../lib/supabaseClient";
-import { Check } from "lucide-react";
+import { Check, X } from "lucide-react";
 import GlassCard from "../../components/ui/GlassCard";
 
 function NotificationCenter({ open, onClose }) {
@@ -134,8 +134,9 @@ function NotificationCenter({ open, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm">
-      <GlassCard className="w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto rounded-2xl border border-fuchsia-100/60 p-4">
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()}>
+        <GlassCard className="w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto rounded-2xl border border-fuchsia-100/60 p-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text font-bold text-slate-800">
@@ -149,14 +150,24 @@ function NotificationCenter({ open, onClose }) {
               )}
             </span>
           </h2>
-          <button
-            type="button"
-            onClick={() => setUnreadCount(0)}
-            className="text-slate-400 hover:text-slate-600 transition-colors"
-            aria-label="Mark all as read"
-          >
-            <Check className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setUnreadCount(0)}
+              className="text-slate-400 hover:text-slate-600 transition-colors"
+              aria-label="Mark all as read"
+            >
+              <Check className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-600 transition-colors"
+              aria-label="Close notifications"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -223,6 +234,7 @@ function NotificationCenter({ open, onClose }) {
           </GlassCard>
         )}
       </GlassCard>
+      </div>
     </div>
   );
 }
