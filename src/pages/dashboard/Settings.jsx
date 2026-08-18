@@ -110,7 +110,10 @@ function SettingsPage() {
     const { name, value } = e.target;
     setForm({
       ...form,
-      [name]: value,
+      [name]:
+        name === "username"
+          ? value.toLowerCase().replace(/\s/g, "")
+          : value,
     });
   };
 
