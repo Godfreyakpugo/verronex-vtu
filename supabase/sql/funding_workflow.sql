@@ -130,7 +130,16 @@ begin
          processed_at = now()
    where id = p_funding_request_id;
 
-  -- 10. Useful return
+  -- 10. Notify the request owner (same transaction — atomic with the credit)
+  insert into public.notifications (user_id, title, message)
+  values (
+    v_user_id,
+    'Wallet Funded',
+    '₦' || to_char(p_credited_amount, 'FM999,999,999,999.00')
+       || ' has been added to your Verronex wallet.'
+  );
+
+  -- 11. Useful return
   return json_build_object(
     'success', true,
     'funding_request_id', p_funding_request_id,
