@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import BrandLogo from "../ui/BrandLogo";
+import NotificationBell from "../ui/NotificationBell";
 
 function Navbar({ onMenuClick }) {
   const { profile, wallet, signOut } = useAuth();
@@ -73,6 +74,8 @@ function Navbar({ onMenuClick }) {
 
       {/* Right side */}
       <div className="flex items-center gap-3">
+        <NotificationBell />
+
         {/* Balance pill — dark vivid */}
         <div className="hidden sm:flex items-center gap-2 bg-linear-to-r from-indigo-900 via-purple-800 to-fuchsia-700 px-4 py-1.5 rounded-xl shadow-md shadow-purple-900/20">
           <span className="text-[10px] font-semibold text-purple-300 uppercase tracking-widest">
