@@ -33,6 +33,9 @@ declare
   v_current_balance numeric;
   v_new_balance numeric;
   v_transaction_id uuid;
+  v_reference text;
+  v_suffix text;
+  i integer;
 begin
   -- 1. Admin only
   if not public.is_admin() then
@@ -44,20 +47,32 @@ begin
     raise exception 'Credit amount must be greater than zero';
   end if;
 
-  -- 5. Require a non-empty reference
+  -- 3. Resolve the payment reference (manual or auto-generated)
   if p_reference is null or trim(p_reference) = '' then
-    raise exception 'Payment reference is required';
+    loop
+      v_suffix := '';
+      for i in 1..8 loop
+        v_suffix := v_suffix ||
+          substr('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', floor(random() * 32)::int + 1, 1);
+      end loop;
+      v_reference := 'FUND-' || to_char(now(), 'YYYYMMDD') || '-' || v_suffix;
+      exit when not exists (
+        select 1 from public.transactions where reference = v_reference
+      );
+    end loop;
+  else
+    v_reference := trim(p_reference);
   end if;
 
-  -- 5. Duplicate reference protection (robust: p_reference is non-null here)
+  -- 4. Duplicate reference protection (always runs; auto refs are already unique)
   if exists (
     select 1 from public.transactions
-    where reference = p_reference
+    where reference = v_reference
   ) then
     raise exception 'Payment reference already exists';
   end if;
 
-  -- 3. Lock the funding request row
+  -- 5. Lock the funding request row
   select user_id, status
     into v_user_id, v_status
     from public.funding_requests
@@ -68,12 +83,12 @@ begin
     raise exception 'Funding request not found';
   end if;
 
-  -- 4. Must be pending (request-level double-credit protection)
+  -- 6. Must be pending (request-level double-credit protection)
   if v_status <> 'pending' then
     raise exception 'Funding request cannot be processed: status is %', v_status;
   end if;
 
-  -- 6. Lock wallet and read current balance
+  -- 7. Lock wallet and read current balance
   select coalesce(balance, 0)
     into v_current_balance
     from public.wallets
@@ -86,7 +101,7 @@ begin
 
   v_new_balance := v_current_balance + p_credited_amount;
 
-  -- 7. Create the completed credit transaction, carrying the origin request id
+  -- 8. Create the completed credit transaction, carrying the origin request id
   insert into public.transactions (
     user_id,
     type,
@@ -107,7 +122,7 @@ begin
     v_current_balance,
     v_new_balance,
     'completed',
-    p_reference,
+    v_reference,
     p_description,
     jsonb_build_object(
       'funding_request_id', p_funding_request_id,
@@ -116,13 +131,13 @@ begin
   )
   returning id into v_transaction_id;
 
-  -- 8. Credit the wallet
+  -- 9. Credit the wallet
   update public.wallets
      set balance = v_new_balance,
          updated_at = now()
    where user_id = v_user_id;
 
-  -- 9. Mark the request processed
+  -- 10. Mark the request processed
   update public.funding_requests
      set status = 'processed',
          amount = p_credited_amount,
@@ -130,7 +145,7 @@ begin
          processed_at = now()
    where id = p_funding_request_id;
 
-  -- 10. Notify the request owner (same transaction — atomic with the credit)
+  -- 11. Notify the request owner (same transaction — atomic with the credit)
   insert into public.notifications (user_id, title, message)
   values (
     v_user_id,
@@ -139,11 +154,12 @@ begin
        || ' has been added to your Verronex wallet.'
   );
 
-  -- 11. Useful return
+  -- 12. Useful return
   return json_build_object(
     'success', true,
     'funding_request_id', p_funding_request_id,
     'transaction_id', v_transaction_id,
+    'transaction_reference', v_reference,
     'new_balance', v_new_balance
   );
 end;

@@ -193,10 +193,6 @@ export default function FundingRequests() {
       setActionError("Enter a valid amount to credit.");
       return;
     }
-    if (!approveRef.trim()) {
-      setActionError("Enter a payment reference for the transaction.");
-      return;
-    }
 
     setActing(true);
     setActionError("");
@@ -207,7 +203,7 @@ export default function FundingRequests() {
         {
           p_funding_request_id: approveTarget.id,
           p_credited_amount: parsedAmount,
-          p_reference: approveRef.trim(),
+          p_reference: approveRef.trim() || null,
           p_description: "Wallet funding",
         },
       );
@@ -215,10 +211,11 @@ export default function FundingRequests() {
       if (err) throw err;
 
       const newBalance = data?.new_balance;
+      const txRef = data?.transaction_reference;
       setNotice(
         `Request approved. ${formatNaira(parsedAmount)} credited and the transaction was recorded.${
-          newBalance != null ? ` New balance: ${formatNaira(newBalance)}.` : ""
-        }`,
+          txRef ? ` Transaction reference: ${txRef}.` : ""
+        }${newBalance != null ? ` New balance: ${formatNaira(newBalance)}.` : ""}`,
       );
       closeModals();
       loadAll();
@@ -481,12 +478,12 @@ export default function FundingRequests() {
 
             <div className="mb-4">
               <label className="text-sm font-bold text-slate-700 block mb-2">
-                Payment reference (transaction)
+                Payment reference (optional)
               </label>
               <input
                 value={approveRef}
                 onChange={(e) => setApproveRef(e.target.value)}
-                placeholder="Bank reference or unique identifier"
+                placeholder="Leave blank to auto-generate"
                 className="w-full rounded-2xl border border-fuchsia-100 bg-fuchsia-50 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-fuchsia-400"
               />
             </div>
