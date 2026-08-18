@@ -203,7 +203,10 @@ function NotificationCenter({ open, onClose }) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1">
                       <p className="font-medium truncate">{n.title}</p>
-                      <p className="text-xs truncate">{n.message}</p>
+                      <div
+                        className="text-xs prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ __html: n.message }}
+                      />
                     </div>
                     <span
                       className={`inline-flex items-center gap-1 text-[8px] font-semibold rounded-full ${typeMeta}`}
