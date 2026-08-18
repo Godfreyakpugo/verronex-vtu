@@ -14,7 +14,7 @@ const quickActions = [
     to: ROUTES.BUY_DATA,
     icon: Wifi,
     label: "Buy Data",
-    sub: "SME & Corporate bundles",
+    sub: "Affordable Bundles",
     iconColor: "text-white",
     iconBg:
       "bg-linear-to-br from-fuchsia-600 to-purple-600 shadow-md shadow-fuchsia-500/30 border-0",
@@ -84,11 +84,11 @@ function Dashboard() {
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-fuchsia-500 rounded-full mix-blend-screen filter blur-[80px] opacity-60"></div>
 
         <div className="relative z-10 flex items-start justify-between gap-4">
-          <div>
+          <div className="flex-1 min-w-0">
             <p className="text-xs text-purple-200 uppercase tracking-widest font-semibold mb-2">
               Available Balance
             </p>
-            <p className="text-4xl font-black text-white tracking-tight">
+            <p className="text-2xl sm:text-4xl font-black text-white tracking-tight">
               <span className="text-fuchsia-300 mr-1 opacity-80">₦</span>
               {parseFloat(wallet?.balance ?? 0).toLocaleString("en-NG", {
                 minimumFractionDigits: 2,
@@ -104,7 +104,7 @@ function Dashboard() {
 
           <Link
             to="/fund-wallet"
-            className="shrink-0 flex items-center gap-2 bg-white hover:bg-slate-50 active:scale-95 text-purple-700 text-sm font-bold px-5 py-3 rounded-2xl shadow-lg transition-all"
+            className="shrink-0 flex items-center gap-2 bg-white hover:bg-slate-50 active:scale-95 text-purple-700 text-sm font-bold px-3 py-2 sm:px-5 sm:py-3 rounded-2xl shadow-lg transition-all"
           >
             <Plus className="w-4 h-4 stroke-3" />
             Fund Wallet
@@ -117,18 +117,22 @@ function Dashboard() {
         <h2 className="text-base font-bold text-slate-900 mb-4">
           Quick Actions
         </h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
           {quickActions.map(
             ({ to, icon: Icon, label, sub, iconColor, iconBg }) => (
               <Link to={to} key={label}>
-                <GlassCard className="p-5 cursor-pointer active:scale-95 hover:shadow-xl hover:shadow-purple-500/10 transition-all border-slate-200/60">
+                <GlassCard className="p-4 sm:p-5 cursor-pointer active:scale-95 hover:shadow-xl hover:shadow-purple-500/10 transition-all border-slate-200/60">
                   <div
-                    className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${iconBg}`}
+                    className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center mb-3 sm:mb-4 ${iconBg}`}
                   >
-                    <Icon className={`w-6 h-6 ${iconColor}`} />
+                    <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${iconColor}`} />
                   </div>
-                  <p className="text-base font-bold text-slate-900">{label}</p>
-                  <p className="text-xs text-slate-500 mt-1">{sub}</p>
+                  <p className="text-sm sm:text-base font-bold text-slate-900 truncate">
+                    {label}
+                  </p>
+                  <p className="text-[11px] sm:text-xs text-slate-500 mt-1 truncate">
+                    {sub}
+                  </p>
                 </GlassCard>
               </Link>
             ),
