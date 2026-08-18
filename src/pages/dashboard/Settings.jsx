@@ -11,7 +11,7 @@ import supabase from "../../lib/supabaseClient";
 import GlassCard from "../../components/ui/GlassCard";
 
 function SettingsPage() {
-  const { profile, wallet, refreshProfile, refreshWallet } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
 
   const [section, setSection] = useState("account");
@@ -72,8 +72,30 @@ function SettingsPage() {
           confirm_password: "",
         });
       } else {
-        // Profile update - refresh profile data
+        // Profile update - persist the edited fields to the profiles table
+        const full_name = (form.full_name || "").trim();
+        const username = (form.username || "").trim();
+
+        if (!full_name) {
+          setError("Full name is required.");
+          return;
+        }
+        if (!/^[a-z0-9_]{3,20}$/.test(username)) {
+          setError(
+            "Username must be 3-20 characters and contain only lowercase letters, numbers and underscores.",
+          );
+          return;
+        }
+
+        const { error } = await supabase
+          .from("profiles")
+          .update({ full_name, username })
+          .eq("id", user.id);
+
+        if (error) throw error;
+
         await refreshProfile();
+        setEditing(false);
         setSuccess("Profile updated successfully.");
       }
     } catch (err) {
