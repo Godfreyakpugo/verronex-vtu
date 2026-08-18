@@ -157,7 +157,7 @@ function SettingsPage() {
 
         {/* Tabs */}
         <div className="flex border-b border-fuchsia-100/50 mb-6">
-          {["account", "security", "profile", "preferences"].map((key) => (
+          {["account", "security", "profile"].map((key) => (
             <button
               key={key}
               type="button"
@@ -175,7 +175,6 @@ function SettingsPage() {
                 account: "Account",
                 security: "Security",
                 profile: "Profile",
-                preferences: "Preferences",
               }[key]}
             </button>
           ))}
@@ -521,45 +520,6 @@ function SettingsPage() {
                 Edit Profile
               </button>
             )}
-          </GlassCard>
-        )}
-
-        {/* Preferences Section */}
-        {section === "preferences" && (
-          <GlassCard className="p-6 rounded-2xl">
-            <h2 className="text font-bold text-slate-800 mb-4">Preferences</h2>
-
-            <p className="text-slate-500 mb-4">
-              Preference settings will appear here in a future update. This space is
-              reserved for account customization options.
-            </p>
-
-            <div className="space-y-3">
-              <div>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" className="rounded border-fuchsia-500" />
-                  <span>Receive promotional emails</span>
-                </label>
-              </div>
-              <div>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" className="rounded border-fuchsia-500" checked />
-                  <span>Show balance on dashboard</span>
-                </label>
-              </div>
-              <div>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" className="rounded border-fuchsia-500" />
-                  <span>Dark mode</span>
-                </label>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setSection("account")}
-              className="mt-4 w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 active:scale-95 text-white py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-fuchsia-500/30 transition-all">
-              ← Back to Account
-            </button>
           </GlassCard>
         )}
 
