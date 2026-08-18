@@ -75,6 +75,7 @@ function SettingsPage() {
         // Profile update - persist the edited fields to the profiles table
         const full_name = (form.full_name || "").trim();
         const username = (form.username || "").trim();
+        const phone = (form.phone || "").trim();
 
         if (!full_name) {
           setError("Full name is required.");
@@ -89,7 +90,7 @@ function SettingsPage() {
 
         const { error } = await supabase
           .from("profiles")
-          .update({ full_name, username })
+          .update({ full_name, username, phone })
           .eq("id", user.id);
 
         if (error) throw error;
@@ -198,7 +199,6 @@ function SettingsPage() {
                       value={form.full_name}
                       onChange={handleChange}
                       className="w-full bg-fuchsia-50/50 border border-fuchsia-100 focus:border-fuchsia-400 focus:bg-white pl-3 py-2.5 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 transition-all"
-                      disabled={profile?.is_admin === true}
                     />
                   </div>
 
@@ -212,7 +212,6 @@ function SettingsPage() {
                       value={form.username}
                       onChange={handleChange}
                       className="w-full bg-fuchsia-50/50 border border-fuchsia-100 focus:border-fuchsia-400 focus:bg-white pl-3 py-2.5 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 transition-all"
-                      disabled={profile?.is_admin === true}
                     />
                   </div>
 
@@ -247,7 +246,7 @@ function SettingsPage() {
                   <div className="flex gap-3">
                     <button
                       type="submit"
-                      className="flex-1 bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition-all"
+                      className="flex-1 bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 active:scale-95 text-white py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-fuchsia-500/30 transition-all"
                     >
                       Save Changes
                     </button>
@@ -282,7 +281,7 @@ function SettingsPage() {
 
                 <button
                   onClick={() => setEditing(true)}
-                  className="mt-3 w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition-all"
+                  className="mt-3 w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 active:scale-95 text-white py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-fuchsia-500/30 transition-all"
                 >
                   <Edit className="w-4 h-4" />
                   Edit
@@ -349,7 +348,7 @@ function SettingsPage() {
                   <div className="flex gap-3">
                     <button
                       type="submit"
-                      className="flex-1 bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition-all"
+                      className="flex-1 bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 active:scale-95 text-white py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-fuchsia-500/30 transition-all"
                     >
                       Update Password
                     </button>
@@ -371,7 +370,7 @@ function SettingsPage() {
 
                 <button
                   onClick={() => setEditing(true)}
-                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition-all">
+                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 active:scale-95 text-white py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-fuchsia-500/30 transition-all">
                   <Lock className="w-4 h-4" />
                   Change Password
                 </button>
@@ -499,7 +498,7 @@ function SettingsPage() {
                   <div className="flex gap-3">
                     <button
                       type="submit"
-                      className="flex-1 bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition-all">
+                      className="flex-1 bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 active:scale-95 text-white py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-fuchsia-500/30 transition-all">
                       Save Changes
                     </button>
                     <button
@@ -514,7 +513,7 @@ function SettingsPage() {
             ) : (
               <button
                 onClick={() => setEditing(true)}
-                className="w-full flex items-center justify-center gap-2 mt-3 bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition-all">
+                className="w-full flex items-center justify-center gap-2 mt-3 bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 active:scale-95 text-white py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-fuchsia-500/30 transition-all">
                 <Users className="w-4 h-4 shrink-0" />
                 Edit Profile
               </button>
@@ -555,7 +554,7 @@ function SettingsPage() {
 
             <button
               onClick={() => setSection("account")}
-              className="mt-4 w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition-all">
+              className="mt-4 w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 active:scale-95 text-white py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-fuchsia-500/30 transition-all">
               ← Back to Account
             </button>
           </GlassCard>
