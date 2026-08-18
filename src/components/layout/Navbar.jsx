@@ -1,14 +1,12 @@
 import { useState, useEffect } from "react";
-import { Menu, Bell, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import BrandLogo from "../ui/BrandLogo";
-import NotificationCenter from "../../components/ui/NotificationCenter";
 
 function Navbar({ onMenuClick }) {
   const { profile, wallet, signOut } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
-  const [notificationsModalOpen, setNotificationsModalOpen] = useState(false);
 
   // Sticky shadow on scroll
   useEffect(() => {
@@ -87,25 +85,6 @@ function Navbar({ onMenuClick }) {
             })}
           </span>
         </div>
-
-        {/* Bell — opens notification center */}
-        <button
-          onClick={() => setNotificationsModalOpen(true)}
-          className="p-2 rounded-xl hover:bg-fuchsia-50 text-slate-400 transition-colors relative"
-        >
-          <Bell className="w-5 h-5" />
-          {notificationsModalOpen && (
-            <X className="absolute -top-1 -right-1 w-4 h-4 text-slate-400" />
-          )}
-        </button>
-
-        {/* Notification center modal */}
-        {notificationsModalOpen && (
-          <NotificationCenter
-            open={notificationsModalOpen}
-            onClose={() => setNotificationsModalOpen(false)}
-          />
-        )}
 
         {/* Sign out */}
         <button
