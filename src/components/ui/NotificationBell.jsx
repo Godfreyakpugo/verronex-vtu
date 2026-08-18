@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Bell, X } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import supabase from "../../lib/supabaseClient";
-import GlassCard from "./GlassCard";
 
 function formatDate(ts) {
   if (!ts) return "just now";
@@ -110,13 +109,13 @@ export default function NotificationBell() {
 
       {/* Panel */}
       {open && (
-        <div className="absolute right-0 mt-2 w-[20rem] z-40">
-          <GlassCard className="p-4 max-h-[70vh] overflow-y-auto">
+        <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] z-40">
+          <div className="rounded-2xl border border-fuchsia-200/80 bg-white/95 backdrop-blur-2xl shadow-[0_10px_35px_rgba(236,72,153,0.18)] p-4 max-h-[70vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-slate-800">Notifications</h3>
+              <h3 className="font-black text-slate-900">Notifications</h3>
               <button
                 onClick={() => setOpen(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
+                className="p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors"
                 aria-label="Close notifications"
               >
                 <X className="w-4 h-4" />
@@ -128,7 +127,7 @@ export default function NotificationBell() {
                 <div className="w-8 h-8 rounded-full bg-slate-200 animate-pulse" />
               </div>
             ) : notifications.length === 0 ? (
-              <p className="text-sm text-slate-500 text-center py-6">
+              <p className="text-sm text-slate-600 text-center py-6">
                 No notifications yet
               </p>
             ) : (
@@ -142,28 +141,28 @@ export default function NotificationBell() {
                       onClick={() => markRead(n)}
                       className={`w-full text-left px-3 py-3 rounded-xl border transition-colors ${
                         isRead
-                          ? "border-slate-100 bg-white/50"
-                          : "border-fuchsia-200 bg-fuchsia-50/70"
+                          ? "border-slate-200 bg-white"
+                          : "border-fuchsia-300/70 bg-fuchsia-50"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <p
-                          className={`text-sm ${
+                          className={`text-sm break-words ${
                             isRead
-                              ? "font-medium text-slate-600"
-                              : "font-bold text-slate-800"
+                              ? "font-semibold text-slate-700"
+                              : "font-bold text-slate-900"
                           }`}
                         >
                           {n.title}
                         </p>
                         {!isRead && (
-                          <span className="mt-1 w-2 h-2 rounded-full bg-fuchsia-500 shrink-0" />
+                          <span className="mt-1 w-2.5 h-2.5 rounded-full bg-fuchsia-500 shrink-0" />
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5 break-words">
+                      <p className="text-sm text-slate-600 mt-0.5 break-words">
                         {n.message}
                       </p>
-                      <p className="text-[10px] text-slate-400 mt-1">
+                      <p className="text-xs text-slate-400 mt-1">
                         {formatDate(n.created_at)}
                       </p>
                     </button>
@@ -171,7 +170,7 @@ export default function NotificationBell() {
                 })}
               </div>
             )}
-          </GlassCard>
+          </div>
         </div>
       )}
     </div>
