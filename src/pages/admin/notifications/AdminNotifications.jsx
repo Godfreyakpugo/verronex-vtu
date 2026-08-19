@@ -8,9 +8,14 @@ import {
   CheckCircle2,
   Users,
   User,
+  Radio,
 } from "lucide-react";
 import GlassCard from "../../../components/ui/GlassCard";
+import ConfirmModal from "../../../components/ui/ConfirmModal";
 import supabase from "../../../lib/supabaseClient";
+
+const formatDate = (value) =>
+  value ? new Date(value).toLocaleString() : "";
 
 export default function AdminNotifications() {
   const [target, setTarget] = useState("all");
@@ -25,6 +30,10 @@ export default function AdminNotifications() {
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
   const [sentText, setSentText] = useState("");
+
+  const [alerts, setAlerts] = useState([]);
+  const [publishConfirm, setPublishConfirm] = useState(false);
+  const [deactivateConfirm, setDeactivateConfirm] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -44,6 +53,26 @@ export default function AdminNotifications() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const loadAlerts = async () => {
+      const { data, error: err } = await supabase
+        .from("public_alerts")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (!active) return;
+      if (err) {
+        console.error("Error fetching public alerts:", err);
+      } else {
+        setAlerts(data || []);
+      }
+    };
+    loadAlerts();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const q = search.trim().toLowerCase();
   const matches = q
     ? users.filter(
@@ -54,6 +83,9 @@ export default function AdminNotifications() {
           u.phone?.toLowerCase().includes(q),
       )
     : [];
+
+  const activeAlert = alerts.find((a) => a.is_active) || null;
+  const previousAlerts = alerts.filter((a) => !a.is_active);
 
   const sendNotification = async () => {
     if (!title.trim() || !message.trim()) return;
@@ -89,6 +121,71 @@ export default function AdminNotifications() {
     setSearch("");
   };
 
+  const confirmPublish = async () => {
+    setSending(true);
+    setError("");
+    setSent(false);
+
+    const { data, error: err } = await supabase.rpc(
+      "admin_publish_public_alert",
+      {
+        p_title: title.trim(),
+        p_message: message.trim(),
+      },
+    );
+
+    setSending(false);
+    if (err) {
+      setError(err?.message || "Failed to publish public alert.");
+      return;
+    }
+
+    setPublishConfirm(false);
+    setSent(true);
+    setSentText(
+      data?.title
+        ? `Public alert published: "${data.title}".`
+        : "Public alert published.",
+    );
+    setTitle("");
+    setMessage("");
+
+    const { data: refreshed } = await supabase
+      .from("public_alerts")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (refreshed) setAlerts(refreshed);
+  };
+
+  const confirmDeactivate = async () => {
+    setSending(true);
+    setError("");
+    setSent(false);
+
+    const { error: err } = await supabase.rpc(
+      "admin_deactivate_public_alert",
+      {},
+    );
+
+    setSending(false);
+    if (err) {
+      setError(err?.message || "Failed to deactivate public alert.");
+      return;
+    }
+
+    setDeactivateConfirm(false);
+    setSent(true);
+    setSentText("Public alert deactivated.");
+
+    const { data: refreshed } = await supabase
+      .from("public_alerts")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (refreshed) setAlerts(refreshed);
+  };
+
+  const isPublic = target === "public";
+
   return (
     <div className="space-y-6">
       <GlassCard className="p-6">
@@ -99,7 +196,8 @@ export default function AdminNotifications() {
           <div>
             <h1 className="text-2xl font-black text-slate-900">Notifications</h1>
             <p className="text-sm text-slate-500">
-              Send a notification to all active users or one user.
+              Send a notification to all active users, one user, or publish a
+              public alert.
             </p>
           </div>
         </div>
@@ -125,7 +223,7 @@ export default function AdminNotifications() {
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
               Send To
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => setTarget("all")}
@@ -150,6 +248,18 @@ export default function AdminNotifications() {
                 <User className="w-4 h-4 shrink-0" />
                 Specific User
               </button>
+              <button
+                type="button"
+                onClick={() => setTarget("public")}
+                className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-bold transition-colors ${
+                  target === "public"
+                    ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700 ring-2 ring-fuchsia-200"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                <Radio className="w-4 h-4 shrink-0" />
+                Public Alert
+              </button>
             </div>
           </div>
 
@@ -159,6 +269,16 @@ export default function AdminNotifications() {
               <Users className="w-4 h-4 text-fuchsia-500 shrink-0" />
               <p className="text-sm font-bold text-slate-800">
                 Send to: All active users
+              </p>
+            </div>
+          )}
+
+          {/* Public alert target confirmation */}
+          {isPublic && (
+            <div className="flex items-center gap-2 rounded-xl border border-fuchsia-100 bg-slate-50 px-4 py-3">
+              <Radio className="w-4 h-4 text-fuchsia-500 shrink-0" />
+              <p className="text-sm font-bold text-slate-800">
+                Send to: All users who access the dashboard
               </p>
             </div>
           )}
@@ -270,27 +390,191 @@ export default function AdminNotifications() {
             />
           </div>
 
-          {/* Send */}
-          <button
-            type="button"
-            onClick={sendNotification}
-            disabled={
-              !title.trim() ||
-              !message.trim() ||
-              (target === "specific" && !selectedUser) ||
-              sending
-            }
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-linear-to-r from-indigo-600 to-fuchsia-600 text-white font-bold shadow-lg shadow-fuchsia-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-          >
-            {sending ? (
-              <Loader2 className="animate-spin w-4 h-4" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-            Send Notification
-          </button>
+          {/* Send / Publish */}
+          {isPublic ? (
+            <button
+              type="button"
+              onClick={() => setPublishConfirm(true)}
+              disabled={
+                !title.trim() || !message.trim() || sending
+              }
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-linear-to-r from-indigo-600 to-fuchsia-600 text-white font-bold shadow-lg shadow-fuchsia-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              {sending ? (
+                <Loader2 className="animate-spin w-4 h-4" />
+              ) : (
+                <Radio className="w-4 h-4" />
+              )}
+              Publish Public Alert
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={sendNotification}
+              disabled={
+                !title.trim() ||
+                !message.trim() ||
+                (target === "specific" && !selectedUser) ||
+                sending
+              }
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-linear-to-r from-indigo-600 to-fuchsia-600 text-white font-bold shadow-lg shadow-fuchsia-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              {sending ? (
+                <Loader2 className="animate-spin w-4 h-4" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+              Send Notification
+            </button>
+          )}
         </div>
       </GlassCard>
+
+      {/* Public Alerts admin section */}
+      <GlassCard className="p-6">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-11 h-11 rounded-2xl bg-fuchsia-100 flex items-center justify-center">
+            <Radio className="w-5 h-5 text-fuchsia-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Public Alerts</h2>
+            <p className="text-xs text-slate-500">
+              Manage the current public alert shown on user dashboards.
+            </p>
+          </div>
+        </div>
+
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+          Current Public Alert
+        </h3>
+        {activeAlert ? (
+          <div className="rounded-xl border border-fuchsia-200 bg-fuchsia-50 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="font-bold text-slate-900">
+                    {activeAlert.title}
+                  </h4>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 rounded-full px-2 py-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    Active
+                  </span>
+                </div>
+                <p className="text-sm text-slate-700 mt-1 whitespace-pre-line">
+                  {activeAlert.message}
+                </p>
+                <p className="text-xs text-slate-400 mt-2">
+                  Published {formatDate(activeAlert.created_at)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeactivateConfirm(true)}
+                className="shrink-0 px-4 py-2 rounded-xl border border-red-200 bg-white text-red-600 text-sm font-bold hover:bg-red-50 transition-colors"
+              >
+                Deactivate
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+            No active public alert.
+          </div>
+        )}
+
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mt-6 mb-2">
+          Previous Public Alerts
+        </h3>
+        {previousAlerts.length === 0 ? (
+          <p className="text-sm text-slate-400">No previous alerts.</p>
+        ) : (
+          <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden">
+            {previousAlerts.map((a) => (
+              <div key={a.id} className="bg-white px-4 py-3">
+                <p className="text-sm font-bold text-slate-800">{a.title}</p>
+                <p className="text-xs text-slate-500 mt-0.5 whitespace-pre-line">
+                  {a.message}
+                </p>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Deactivated — {formatDate(a.created_at)}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </GlassCard>
+
+      {/* Publish confirmation */}
+      {publishConfirm && (
+        <div className="fixed inset-0 z-9999 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <GlassCard className="w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-12 h-12 rounded-xl bg-fuchsia-100 flex items-center justify-center">
+                <Radio className="w-6 h-6 text-fuchsia-600" />
+              </div>
+              <div>
+                <h2 className="font-bold text-lg">Publish Public Alert?</h2>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                  Title
+                </p>
+                <p className="font-bold text-slate-900">{title.trim()}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                  Message
+                </p>
+                <p className="text-sm text-slate-700 whitespace-pre-line">
+                  {message.trim()}
+                </p>
+              </div>
+              <p className="text-xs text-slate-500">
+                This alert will be shown to users when they enter the Dashboard.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setPublishConfirm(false)}
+                className="px-5 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmPublish}
+                disabled={sending}
+                className="px-5 py-2 rounded-xl bg-linear-to-r from-indigo-600 to-fuchsia-600 text-white font-bold shadow-lg shadow-fuchsia-500/30 disabled:opacity-50"
+              >
+                {sending ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="animate-spin w-4 h-4" /> Publishing...
+                  </span>
+                ) : (
+                  "Publish Alert"
+                )}
+              </button>
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
+      <ConfirmModal
+        open={deactivateConfirm}
+        title="Deactivate Public Alert?"
+        message={`This will deactivate the current public alert "${activeAlert?.title || ""}" and it will no longer be shown to users.`}
+        confirmText="Deactivate"
+        cancelText="Cancel"
+        danger
+        loading={sending}
+        onCancel={() => setDeactivateConfirm(false)}
+        onConfirm={confirmDeactivate}
+      />
     </div>
   );
 }

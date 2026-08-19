@@ -6,6 +6,7 @@ import supabase from "../../lib/supabaseClient";
 import GlassCard from "../../components/ui/GlassCard";
 import TransactionRow from "../../components/ui/TransactionRow";
 import TransactionDetailModal from "../../components/ui/TransactionDetailModal";
+import PublicAlertModal from "../../components/ui/PublicAlertModal";
 import { buildTransactionView } from "../../lib/transactionView";
 import { ROUTES } from "../../routes";
 
@@ -37,6 +38,7 @@ function Dashboard() {
   const [recent, setRecent] = useState([]);
   const [recentLoading, setRecentLoading] = useState(true);
   const [selected, setSelected] = useState(null);
+  const [publicAlert, setPublicAlert] = useState(null);
 
   const firstName = profile?.full_name?.split(" ")[0] ?? null;
 
@@ -63,6 +65,44 @@ function Dashboard() {
       ignore = true;
     };
   }, [refreshWallet]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    (async () => {
+      const { data, error } = await supabase
+        .from("public_alerts")
+        .select("id, title, message")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (ignore || error || !data) return;
+
+      if (
+        sessionStorage.getItem(`verronex.publicAlert.dismissed.${data.id}`)
+      ) {
+        return;
+      }
+
+      setPublicAlert(data);
+    })();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const dismissPublicAlert = () => {
+    if (publicAlert) {
+      sessionStorage.setItem(
+        `verronex.publicAlert.dismissed.${publicAlert.id}`,
+        "1",
+      );
+    }
+    setPublicAlert(null);
+  };
 
   const recentViews = recent.map(buildTransactionView);
 
@@ -196,6 +236,8 @@ function Dashboard() {
         view={selected}
         onClose={() => setSelected(null)}
       />
+
+      <PublicAlertModal alert={publicAlert} onDismiss={dismissPublicAlert} />
     </div>
   );
 }
