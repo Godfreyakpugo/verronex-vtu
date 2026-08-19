@@ -37,7 +37,6 @@ export default function WalletAdjustment({
   const disabled =
     !targetUser ||
     parsedAmount <= 0 ||
-    !reference.trim() ||
     loading ||
     (mode === "debit" && parsedAmount > currentBalance);
 
@@ -132,12 +131,12 @@ export default function WalletAdjustment({
 
         <div>
           <label className="text-[11px] uppercase font-bold tracking-wide text-slate-500">
-            Reference
+            Reference (Optional)
           </label>
           <input
             value={reference}
             onChange={(e) => setReference(e.target.value)}
-            placeholder="Payment reference"
+            placeholder="Leave blank to auto-generate"
             className="mt-1 w-full rounded-xl border border-fuchsia-100 bg-fuchsia-50 px-4 py-2.5 focus:ring-2 focus:ring-fuchsia-500 outline-none"
           />
         </div>

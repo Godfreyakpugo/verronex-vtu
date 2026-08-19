@@ -224,7 +224,7 @@ function WalletManagement() {
       const { data: creditResult, error } = await supabase.rpc(rpc, {
         target_user_id: targetUser.id,
         [amountKey]: pendingCredit.amount,
-        payment_reference: pendingCredit.reference,
+        payment_reference: pendingCredit.reference || null,
         payment_description: description,
       });
 
@@ -252,6 +252,7 @@ function WalletManagement() {
           mode: pendingCredit.mode,
           amount: pendingCredit.amount,
           newBalance: resolvedBalance,
+          reference: creditResult?.transaction_reference || null,
         });
       } else {
         const { data: updatedWallet, error: walletError } = await supabase
@@ -268,6 +269,7 @@ function WalletManagement() {
           mode: pendingCredit.mode,
           amount: pendingCredit.amount,
           newBalance: updatedWallet.balance,
+          reference: creditResult?.transaction_reference || null,
         });
       }
 
@@ -292,10 +294,6 @@ function WalletManagement() {
 
     if (!amount || amount <= 0) {
       setCreditError("Enter a valid amount.");
-      return;
-    }
-    if (!reference.trim()) {
-      setCreditError("Enter the transfer reference.");
       return;
     }
 
@@ -369,6 +367,10 @@ function WalletManagement() {
           {creditSuccess.mode === "credit"
             ? "Wallet credited successfully."
             : "Wallet debited successfully."}
+          {creditSuccess.reference
+            ? ` Transaction reference: ${creditSuccess.reference}.`
+            : ""}{" "}
+          New balance: ₦{formatMoney(creditSuccess.newBalance)}.
         </div>
       )}
 
@@ -379,7 +381,7 @@ function WalletManagement() {
       <ConfirmModal
         open={confirmOpen}
         title="Confirm Wallet Adjustment"
-        message={`You are about to apply a ${pendingCredit?.mode === "credit" ? "credit" : "debit"} adjustment to:\n\nUser: ${targetUser?.full_name || "Selected user"}\n\nEmail: ${targetUser?.email || ""}\n\nCurrent Balance: ₦${formatMoney(targetWallet?.balance || 0)}\n\n${pendingCredit?.mode === "credit" ? "Credit" : "Debit"} Amount: ₦${formatMoney(pendingCredit?.amount || 0)}\n\nReference: ${pendingCredit?.reference || ""}\n\nPlease confirm this action.`}
+        message={`You are about to apply a ${pendingCredit?.mode === "credit" ? "credit" : "debit"} adjustment to:\n\nUser: ${targetUser?.full_name || "Selected user"}\n\nEmail: ${targetUser?.email || ""}\n\nCurrent Balance: ₦${formatMoney(targetWallet?.balance || 0)}\n\n${pendingCredit?.mode === "credit" ? "Credit" : "Debit"} Amount: ₦${formatMoney(pendingCredit?.amount || 0)}\n\nReference: ${pendingCredit?.reference || "Auto-generated"}\n\nPlease confirm this action.`}
         confirmText="Apply Adjustment"
         cancelText="Cancel"
         loading={crediting}
