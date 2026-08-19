@@ -9,6 +9,7 @@ import {
   Users,
   User,
   Radio,
+  Pencil,
 } from "lucide-react";
 import GlassCard from "../../../components/ui/GlassCard";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
@@ -34,6 +35,11 @@ export default function AdminNotifications() {
   const [alerts, setAlerts] = useState([]);
   const [publishConfirm, setPublishConfirm] = useState(false);
   const [deactivateConfirm, setDeactivateConfirm] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editMessage, setEditMessage] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -176,6 +182,51 @@ export default function AdminNotifications() {
     setDeactivateConfirm(false);
     setSent(true);
     setSentText("Public alert deactivated.");
+
+    const { data: refreshed } = await supabase
+      .from("public_alerts")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (refreshed) setAlerts(refreshed);
+  };
+
+  const openEdit = () => {
+    if (!activeAlert) return;
+    setEditTitle(activeAlert.title);
+    setEditMessage(activeAlert.message);
+    setEditError("");
+    setEditOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!activeAlert || savingEdit) return;
+    if (!editTitle.trim() || !editMessage.trim()) {
+      setEditError("Title and message are required.");
+      return;
+    }
+
+    setSavingEdit(true);
+    setEditError("");
+    setSent(false);
+
+    const { error: err } = await supabase.rpc(
+      "admin_update_public_alert",
+      {
+        p_alert_id: activeAlert.id,
+        p_title: editTitle.trim(),
+        p_message: editMessage.trim(),
+      },
+    );
+
+    setSavingEdit(false);
+    if (err) {
+      setEditError(err?.message || "Failed to update public alert.");
+      return;
+    }
+
+    setEditOpen(false);
+    setSent(true);
+    setSentText("Public alert updated successfully.");
 
     const { data: refreshed } = await supabase
       .from("public_alerts")
@@ -467,13 +518,22 @@ export default function AdminNotifications() {
                   Published {formatDate(activeAlert.created_at)}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setDeactivateConfirm(true)}
-                className="shrink-0 px-4 py-2 rounded-xl border border-red-200 bg-white text-red-600 text-sm font-bold hover:bg-red-50 transition-colors"
-              >
-                Deactivate
-              </button>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center shrink-0">
+                <button
+                  type="button"
+                  onClick={openEdit}
+                  className="px-4 py-2 rounded-xl border border-fuchsia-200 bg-white text-fuchsia-700 text-sm font-bold hover:bg-fuchsia-50 transition-colors"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeactivateConfirm(true)}
+                  className="px-4 py-2 rounded-xl border border-red-200 bg-white text-red-600 text-sm font-bold hover:bg-red-50 transition-colors"
+                >
+                  Deactivate
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -557,6 +617,79 @@ export default function AdminNotifications() {
                   </span>
                 ) : (
                   "Publish Alert"
+                )}
+              </button>
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
+      {/* Edit active public alert */}
+      {editOpen && (
+        <div className="fixed inset-0 z-9999 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <GlassCard className="w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-12 h-12 rounded-xl bg-fuchsia-100 flex items-center justify-center">
+                <Pencil className="w-6 h-6 text-fuchsia-600" />
+              </div>
+              <div>
+                <h2 className="font-bold text-lg">Edit Public Alert</h2>
+              </div>
+            </div>
+
+            {editError && (
+              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {editError}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  Title
+                </label>
+                <input
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder="Alert title"
+                  className="w-full px-4 py-3 rounded-xl border border-fuchsia-100 bg-fuchsia-50 outline-none focus:ring-2 focus:ring-fuchsia-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  Message
+                </label>
+                <textarea
+                  value={editMessage}
+                  onChange={(e) => setEditMessage(e.target.value)}
+                  placeholder="Alert message"
+                  rows={4}
+                  className="w-full px-4 py-3 rounded-xl border border-fuchsia-100 bg-fuchsia-50 outline-none focus:ring-2 focus:ring-fuchsia-500 resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setEditOpen(false)}
+                disabled={savingEdit}
+                className="px-5 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveEdit}
+                disabled={savingEdit}
+                className="px-5 py-2 rounded-xl bg-linear-to-r from-indigo-600 to-fuchsia-600 text-white font-bold shadow-lg shadow-fuchsia-500/30 disabled:opacity-50"
+              >
+                {savingEdit ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="animate-spin w-4 h-4" /> Saving...
+                  </span>
+                ) : (
+                  "Save Changes"
                 )}
               </button>
             </div>
