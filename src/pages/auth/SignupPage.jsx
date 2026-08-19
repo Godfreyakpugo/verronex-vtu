@@ -2,7 +2,31 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, User, Phone, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import supabase from "../../lib/supabaseClient";
 import BrandLogo from "../../components/ui/BrandLogo";
+
+function GoogleIcon() {
+  return (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A10.96 10.96 0 0 0 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38Z"
+      />
+    </svg>
+  );
+}
 
 // Reusable input field
 function Field({
@@ -63,7 +87,29 @@ function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    if (googleBusy) return;
+    setError(null);
+    setGoogleBusy(true);
+
+    try {
+      const { error: err } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (err) throw err;
+    } catch (err) {
+      console.error("Google sign-in error:", err);
+      setError("Could not start Google sign-in. Please try again.");
+      setGoogleBusy(false);
+    }
+  };
 
   const handleSignUp = async () => {
     setError(null);
@@ -261,6 +307,25 @@ function SignupPage() {
               Create Account <ArrowRight className="w-4 h-4" />{" "}
             </>
           )}
+        </button>
+
+        {/* Divider */}
+        <div className="flex items-center gap-3 pt-1">
+          <div className="h-px flex-1 bg-slate-200" />
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            or
+          </span>
+          <div className="h-px flex-1 bg-slate-200" />
+        </div>
+
+        {/* Continue with Google */}
+        <button
+          onClick={handleGoogleSignIn}
+          disabled={googleBusy || busy}
+          className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-50 active:scale-95 border border-slate-200 text-sm font-bold py-3.5 rounded-xl text-slate-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <GoogleIcon />
+          {googleBusy ? "Connecting to Google..." : "Continue with Google"}
         </button>
 
         <p className="text-center text-xs text-slate-500 pt-2">
