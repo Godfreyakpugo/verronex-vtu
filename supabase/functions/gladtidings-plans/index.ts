@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
     }
 
     const productsEndpoint =
-      Deno.env.get("GLADTIDINGS_PRODUCTS_ENDPOINT") || "/api/datalist";
+      Deno.env.get("GLADTIDINGS_PRODUCTS_ENDPOINT") || "/api/services/";
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -106,7 +106,12 @@ Deno.serve(async (req) => {
 
     const body = await response.json();
 
-    const raw = body?.Dataplans ?? body?.data?.Dataplans ?? body?.data ?? null;
+    const raw =
+      body?.data_plans ??
+      body?.Dataplans ??
+      body?.data?.Dataplans ??
+      body?.data ??
+      null;
     if (!raw) {
       return Response.json(
         { error: "Unexpected Gladtidings response shape." },
@@ -138,7 +143,14 @@ Deno.serve(async (req) => {
     };
 
     if (Array.isArray(raw)) {
-      raw.forEach(addPlan);
+      for (const entry of raw) {
+        if (entry && Array.isArray(entry.items)) {
+          // New shape: [{ name, items: [...] }] (one entry per network)
+          entry.items.forEach(addPlan);
+        } else {
+          addPlan(entry);
+        }
+      }
     } else {
       for (const networkKey of Object.keys(raw)) {
         const groups = raw[networkKey];
