@@ -43,7 +43,7 @@ function Field({
   const inputType = showToggle ? (show ? "text" : "password") : type;
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
         {label}
       </label>
@@ -55,7 +55,7 @@ function Field({
           value={value}
           onChange={onChange}
           onKeyDown={onKeyDown}
-          className="w-full bg-fuchsia-50/50 border border-fuchsia-100 focus:border-fuchsia-400 focus:bg-white pl-10 pr-10 py-3 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/20 transition-all"
+          className="w-full bg-fuchsia-50/50 border border-fuchsia-100 focus:border-fuchsia-400 focus:bg-white pl-10 pr-10 py-2.5 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/20 transition-all"
         />
         {showToggle && (
           <button
@@ -164,7 +164,7 @@ function SignupPage() {
   };
 
   const pageWrapper = (content) => (
-    <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.12),transparent_50%),linear-gradient(135deg,#eef2ff_0%,#f5f3ff_30%,#fdf4ff_60%,#ffffff_100%)] px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.12),transparent_50%),linear-gradient(135deg,#eef2ff_0%,#f5f3ff_30%,#fdf4ff_60%,#ffffff_100%)] px-4 py-6">
       <div className="w-full max-w-sm">
         <div className="bg-white/75 backdrop-blur-2xl border border-white/60 rounded-3xl shadow-[0_25px_60px_rgba(99,102,246,0.18)] overflow-hidden">
           {content}
@@ -174,7 +174,7 @@ function SignupPage() {
   );
 
   const darkHeader = (title, sub) => (
-    <div className="bg-linear-to-br from-indigo-900 via-purple-800 to-fuchsia-700 px-8 pt-10 pb-12 relative overflow-hidden">
+    <div className="bg-linear-to-br from-indigo-900 via-purple-800 to-fuchsia-700 px-8 pt-5 pb-5 relative overflow-hidden">
       <div className="absolute -top-12 -right-12 w-48 h-48 bg-fuchsia-500 rounded-full filter blur-[70px] opacity-40 mix-blend-screen pointer-events-none" />
       <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-indigo-400 rounded-full filter blur-[50px] opacity-30 mix-blend-screen pointer-events-none" />
       <div className="relative z-10">
@@ -183,7 +183,7 @@ function SignupPage() {
           textClassName="text-white"
           subTextClassName="text-purple-300"
         />
-        <h1 className="mt-6 text-2xl font-black text-white tracking-tight">
+        <h1 className="mt-2 text-2xl font-black text-white tracking-tight">
           {title}
         </h1>
         <p className="text-sm text-purple-200 font-medium mt-1">{sub}</p>
@@ -237,7 +237,7 @@ function SignupPage() {
     <>
       {darkHeader("Create account", "Get started with Verronex VTU today")}
 
-      <div className="px-8 pt-8 pb-8 space-y-4">
+      <div className="px-8 pt-5 pb-6 space-y-2.5">
         <Field
           label="Full Name"
           icon={User}
@@ -297,7 +297,7 @@ function SignupPage() {
         <button
           onClick={handleSignUp}
           disabled={busy}
-          className="w-full flex items-center justify-center gap-2 bg-linear-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-700 hover:to-purple-700 active:scale-95 text-white text-sm font-bold py-3.5 rounded-xl shadow-lg shadow-fuchsia-500/30 transition-all disabled:opacity-50 mt-2"
+          className="w-full flex items-center justify-center gap-2 bg-linear-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-700 hover:to-purple-700 active:scale-95 text-white text-sm font-bold py-3 rounded-xl shadow-lg shadow-fuchsia-500/30 transition-all disabled:opacity-50 mt-1"
         >
           {busy ? (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -322,13 +322,13 @@ function SignupPage() {
         <button
           onClick={handleGoogleSignIn}
           disabled={googleBusy || busy}
-          className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-50 active:scale-95 border border-slate-200 text-sm font-bold py-3.5 rounded-xl text-slate-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-50 active:scale-95 border border-slate-200 text-sm font-bold py-3 rounded-xl text-slate-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <GoogleIcon />
           {googleBusy ? "Connecting to Google..." : "Continue with Google"}
         </button>
 
-        <p className="text-center text-xs text-slate-500 pt-2">
+        <p className="text-center text-xs text-slate-500 pt-1">
           Already have an account?{" "}
           <Link
             to="/login"
