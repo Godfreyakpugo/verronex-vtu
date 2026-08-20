@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Wifi,
   Smartphone,
@@ -149,6 +149,29 @@ export default function BuyData() {
 
   const [phoneNumber, setPhoneNumber] = useState("");
   const [phoneTouched, setPhoneTouched] = useState(false);
+  const phoneInputRef = useRef(null);
+
+  // Normalize on change so the input never retains an unnormalized value
+  // (e.g. "+234 703 740 8580" -> "07037408580"), while preserving the caret
+  // so normal digit typing is unaffected.
+  function handlePhoneChange(e) {
+    const input = e.target;
+    const raw = input.value;
+    const normalized = normalizeNigerianPhone(raw);
+    const caret = input.selectionStart ?? raw.length;
+
+    setPhoneNumber(normalized);
+
+    if (normalized === raw) return;
+
+    requestAnimationFrame(() => {
+      const el = phoneInputRef.current;
+      if (!el) return;
+      const removedBeforeCaret = (raw.slice(0, caret).match(/\D/g) || []).length;
+      const pos = Math.max(0, caret - removedBeforeCaret);
+      el.setSelectionRange(pos, pos);
+    });
+  }
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
@@ -478,12 +501,13 @@ export default function BuyData() {
           <div className="relative">
             <Smartphone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
+              ref={phoneInputRef}
               id="phoneNumber"
               type="tel"
               inputMode="numeric"
               placeholder="080XXXXXXXX"
               value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
+              onChange={handlePhoneChange}
               onBlur={() => setPhoneTouched(true)}
               className={`w-full pl-10 pr-4 py-2.5 rounded-xl border-2 bg-white text-sm outline-none transition-colors ${
                 phoneError
