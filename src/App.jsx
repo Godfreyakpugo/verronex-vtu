@@ -19,6 +19,7 @@ import UserManagement from "./pages/admin/users/UserManagement";
 import ProductsDashboard from "./pages/admin/products/ProductsDashboard";
 import AdminTransactions from "./pages/admin/transactions/AdminTransactions";
 import AdminNotifications from "./pages/admin/notifications/AdminNotifications";
+import AccountingPage from "./pages/admin/accounting/AccountingPage";
 
 function FullScreenLoader() {
   return (
@@ -181,6 +182,17 @@ export default function App() {
             <AdminRoute>
               <Shell>
                 <AdminNotifications />
+              </Shell>
+            </AdminRoute>
+          }
+        />
+
+        <Route
+          path="/admin/accounting"
+          element={
+            <AdminRoute>
+              <Shell>
+                <AccountingPage />
               </Shell>
             </AdminRoute>
           }

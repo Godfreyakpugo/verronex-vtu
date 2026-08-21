@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Package, Smartphone, Wifi, CreditCard } from "lucide-react";
+import { Package, Smartphone, Wifi, CreditCard, DollarSign } from "lucide-react";
 import GlassCard from "../../../components/ui/GlassCard";
 import DataPlanManagement from "./DataPlanManagement";
 import AirtimeManagement from "./AirtimeManagement";
+import AccountingPage from "../accounting/AccountingPage";
 // We will import this later when we build it!
 // import DataCardManagement from "./DataCardManagement";
 
@@ -23,7 +24,7 @@ export default function ProductsDashboard() {
               Admin Console
             </p>
             <h1 className="text-2xl font-black text-white tracking-tight">
-              Products & Pricing
+              Products & Accounting
             </h1>
           </div>
         </div>
@@ -63,13 +64,23 @@ export default function ProductsDashboard() {
         >
           <CreditCard className="w-4 h-4" /> Data Cards
         </button>
+
+        <button
+          onClick={() => setActiveTab("accounting")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition ${
+            activeTab === "accounting"
+              ? "bg-fuchsia-100 text-fuchsia-700"
+              : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+          }`}
+        >
+          <DollarSign className="w-4 h-4" /> Accounting
+        </button>
       </GlassCard>
 
       {/* Render Active Component */}
       <div className="animate-in fade-in duration-300">
         {activeTab === "data" && <DataPlanManagement />}
 
-        {/* Placeholders for unbuilt components */}
         {activeTab === "airtime" && <AirtimeManagement />}
 
         {activeTab === "datacards" && (
@@ -81,6 +92,8 @@ export default function ProductsDashboard() {
             <p>This module will be built next.</p>
           </GlassCard>
         )}
+
+        {activeTab === "accounting" && <AccountingPage />}
       </div>
     </div>
   );
