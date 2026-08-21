@@ -122,6 +122,8 @@ export default function DataPlanManagement() {
   const [syncResult, setSyncResult] = useState(null);
   const [syncOpen, setSyncOpen] = useState(false);
   const [applyingSync, setApplyingSync] = useState(false);
+  // Track which updates are selected for apply (all checked by default)
+  const [selectedUpdates, setSelectedUpdates] = useState(new Set());
 
   const [toast, setToast] = useState(null);
 
@@ -511,6 +513,13 @@ export default function DataPlanManagement() {
       }
 
       setSyncResult({ priceChanges, newPlans, removed });
+      // Initialize all updates as selected (checked by default)
+      const initialSelection = new Set([
+        ...priceChanges.map(({ existing }) => `price:${existing.id}`),
+        ...newPlans.map((pp) => `new:${pp.api_plan_id}`),
+        ...removed.map((plan) => `removed:${plan.id}`),
+      ]);
+      setSelectedUpdates(initialSelection);
       setSyncOpen(true);
     } catch (err) {
       setToast({
@@ -523,21 +532,47 @@ export default function DataPlanManagement() {
     }
   };
 
-  const confirmApplySync = async () => {
+  // Selection handlers for sync review modal
+  const handleSelectUpdate = (key, checked) => {
+    setSelectedUpdates((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  };
+
+  const handleCheckAll = () => {
+    if (!syncResult) return;
+    const allKeys = new Set([
+      ...syncResult.priceChanges.map(({ existing }) => `price:${existing.id}`),
+      ...syncResult.newPlans.map((pp) => `new:${pp.api_plan_id}`),
+      ...syncResult.removed.map((plan) => `removed:${plan.id}`),
+    ]);
+    setSelectedUpdates(allKeys);
+  };
+
+  const handleUncheckAll = () => {
+    setSelectedUpdates(new Set());
+  };
+
+const confirmApplySync = async () => {
     if (!syncResult) return;
     setApplyingSync(true);
 
     const updates = [];
 
     for (const { existing, provider: pp, newCost, sellingPrice } of syncResult.priceChanges) {
+      if (!selectedUpdates.has(`price:${existing.id}`)) continue;
       const patch = { cost_price: newCost, plan_name: pp.plan_name, validity: pp.validity };
-      if (newCost > sellingPrice) patch.selling_price = newCost; // never sell at a loss
+      if (newCost > sellingPrice) patch.selling_price = newCost;
       updates.push(
         supabase.from("data_plans").update(patch).eq("id", existing.id),
       );
     }
 
     for (const pp of syncResult.newPlans) {
+      if (!selectedUpdates.has(`new:${pp.api_plan_id}`)) continue;
       updates.push(
         supabase.from("data_plans").insert([
           {
@@ -557,6 +592,7 @@ export default function DataPlanManagement() {
     }
 
     for (const plan of syncResult.removed) {
+      if (!selectedUpdates.has(`removed:${plan.id}`)) continue;
       updates.push(
         supabase.from("data_plans").update({ is_active: false }).eq("id", plan.id),
       );
@@ -1112,6 +1148,27 @@ export default function DataPlanManagement() {
               </button>
             </div>
 
+            {/* Check All / Uncheck All */}
+            <div className="flex items-center gap-2 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <button
+                type="button"
+                onClick={handleCheckAll}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition"
+              >
+                Check All
+              </button>
+              <button
+                type="button"
+                onClick={handleUncheckAll}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition"
+              >
+                Uncheck All
+              </button>
+              <span className="ml-auto text-xs text-slate-500">
+                {selectedUpdates.size} of {syncTotal} selected
+              </span>
+            </div>
+
             <div className="overflow-y-auto min-h-0 space-y-5 pr-1">
               {syncResult.priceChanges.length > 0 && (
                 <div>
@@ -1120,37 +1177,50 @@ export default function DataPlanManagement() {
                   </h3>
                   <div className="space-y-2">
                     {syncResult.priceChanges.map(
-                      ({ existing, provider: pp, oldCost, newCost, sellingPrice, atLoss }) => (
-                        <div
-                          key={existing.id}
-                          className="rounded-xl border border-slate-100 p-3"
-                        >
-                          <div className="font-semibold text-slate-800 text-sm">
-                            {pp.plan_name}
+                      ({ existing, provider: pp, oldCost, newCost, sellingPrice, atLoss }) => {
+                        const key = `price:${existing.id}`;
+                        const checked = selectedUpdates.has(key);
+                        return (
+                          <div
+                            key={existing.id}
+                            className="rounded-xl border border-slate-100 p-3 flex items-start gap-3"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => handleSelectUpdate(key, e.target.checked)}
+                              className="mt-1 w-4 h-4 text-fuchsia-600 border-slate-300 rounded focus:ring-fuchsia-500 focus:ring-2"
+                              aria-label={`Apply update for ${pp.plan_name}`}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-slate-800 text-sm">
+                                {pp.plan_name}
+                              </div>
+                              <div className="flex items-center flex-wrap gap-2 mt-1 text-xs">
+                                <span className="text-slate-400 line-through">
+                                  ₦{formatMoney(oldCost)}
+                                </span>
+                                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                                <span className="text-slate-700 font-semibold">
+                                  ₦{formatMoney(newCost)}
+                                </span>
+                                {pp.validity && (
+                                  <span className="text-slate-400">
+                                    · validity: {pp.validity}
+                                  </span>
+                                )}
+                              </div>
+                              {atLoss && (
+                                <p className="mt-1.5 text-[11px] font-semibold text-red-600">
+                                  Selling price (₦{formatMoney(sellingPrice)}) is
+                                  below the new cost — it will be raised to ₦
+                                  {formatMoney(newCost)}.
+                                </p>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex items-center flex-wrap gap-2 mt-1 text-xs">
-                            <span className="text-slate-400 line-through">
-                              ₦{formatMoney(oldCost)}
-                            </span>
-                            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                            <span className="text-slate-700 font-semibold">
-                              ₦{formatMoney(newCost)}
-                            </span>
-                            {pp.validity && (
-                              <span className="text-slate-400">
-                                · validity: {pp.validity}
-                              </span>
-                            )}
-                          </div>
-                          {atLoss && (
-                            <p className="mt-1.5 text-[11px] font-semibold text-red-600">
-                              Selling price (₦{formatMoney(sellingPrice)}) is
-                              below the new cost — it will be raised to ₦
-                              {formatMoney(newCost)}.
-                            </p>
-                          )}
-                        </div>
-                      ),
+                        );
+                      },
                     )}
                   </div>
                 </div>
@@ -1166,17 +1236,28 @@ export default function DataPlanManagement() {
                     {DEFAULT_SELL_MARKUP}.
                   </p>
                   <div className="space-y-1.5">
-                    {syncResult.newPlans.map((pp) => (
-                      <div
-                        key={pp.api_plan_id}
-                        className="rounded-lg border border-slate-100 px-3 py-2 text-sm text-slate-700"
-                      >
-                        <span className="font-semibold">{pp.plan_name}</span>{" "}
-                        <span className="text-slate-400 text-xs">
-                          ({pp.network} · ₦{formatMoney(pp.cost_price)})
-                        </span>
-                      </div>
-                    ))}
+                    {syncResult.newPlans.map((pp) => {
+                      const key = `new:${pp.api_plan_id}`;
+                      const checked = selectedUpdates.has(key);
+                      return (
+                        <div
+                          key={pp.api_plan_id}
+                          className="rounded-lg border border-slate-100 px-3 py-2 text-sm text-slate-700 flex items-center gap-3"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => handleSelectUpdate(key, e.target.checked)}
+                            className="w-4 h-4 text-fuchsia-600 border-slate-300 rounded focus:ring-fuchsia-500 focus:ring-2"
+                            aria-label={`Add new plan ${pp.plan_name}`}
+                          />
+                          <span className="font-semibold">{pp.plan_name}</span>{" "}
+                          <span className="text-slate-400 text-xs">
+                            ({pp.network} · ₦{formatMoney(pp.cost_price)})
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1191,17 +1272,28 @@ export default function DataPlanManagement() {
                     being sold.
                   </p>
                   <div className="space-y-1.5">
-                    {syncResult.removed.map((plan) => (
-                      <div
-                        key={plan.id}
-                        className="rounded-lg border border-slate-100 px-3 py-2 text-sm text-slate-700"
-                      >
-                        <span className="font-semibold">{plan.plan_name}</span>{" "}
-                        <span className="text-slate-400 text-xs">
-                          ({plan.network})
-                        </span>
-                      </div>
-                    ))}
+                    {syncResult.removed.map((plan) => {
+                      const key = `removed:${plan.id}`;
+                      const checked = selectedUpdates.has(key);
+                      return (
+                        <div
+                          key={plan.id}
+                          className="rounded-lg border border-slate-100 px-3 py-2 text-sm text-slate-700 flex items-center gap-3"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => handleSelectUpdate(key, e.target.checked)}
+                            className="w-4 h-4 text-fuchsia-600 border-slate-300 rounded focus:ring-fuchsia-500 focus:ring-2"
+                            aria-label={`Deactivate ${plan.plan_name}`}
+                          />
+                          <span className="font-semibold">{plan.plan_name}</span>{" "}
+                          <span className="text-slate-400 text-xs">
+                            ({plan.network})
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
