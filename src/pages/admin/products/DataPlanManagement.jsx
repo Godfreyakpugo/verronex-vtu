@@ -1189,7 +1189,7 @@ const confirmApplySync = async () => {
                               type="checkbox"
                               checked={checked}
                               onChange={(e) => handleSelectUpdate(key, e.target.checked)}
-                              className="mt-1 w-4 h-4 text-fuchsia-600 border-slate-300 rounded focus:ring-fuchsia-500 focus:ring-2"
+                              className="mt-1 w-4 h-4 accent-fuchsia-600 border-slate-300 rounded focus:ring-fuchsia-500 focus:ring-2"
                               aria-label={`Apply update for ${pp.plan_name}`}
                             />
                             <div className="flex-1 min-w-0">
@@ -1248,7 +1248,7 @@ const confirmApplySync = async () => {
                             type="checkbox"
                             checked={checked}
                             onChange={(e) => handleSelectUpdate(key, e.target.checked)}
-                            className="w-4 h-4 text-fuchsia-600 border-slate-300 rounded focus:ring-fuchsia-500 focus:ring-2"
+                            className="w-4 h-4 accent-fuchsia-600 border-slate-300 rounded focus:ring-fuchsia-500 focus:ring-2"
                             aria-label={`Add new plan ${pp.plan_name}`}
                           />
                           <span className="font-semibold">{pp.plan_name}</span>{" "}
@@ -1284,7 +1284,7 @@ const confirmApplySync = async () => {
                             type="checkbox"
                             checked={checked}
                             onChange={(e) => handleSelectUpdate(key, e.target.checked)}
-                            className="w-4 h-4 text-fuchsia-600 border-slate-300 rounded focus:ring-fuchsia-500 focus:ring-2"
+                            className="w-4 h-4 accent-fuchsia-600 border-slate-300 rounded focus:ring-fuchsia-500 focus:ring-2"
                             aria-label={`Deactivate ${plan.plan_name}`}
                           />
                           <span className="font-semibold">{plan.plan_name}</span>{" "}
