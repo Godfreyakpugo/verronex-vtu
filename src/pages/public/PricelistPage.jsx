@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Wifi, Smartphone, Search, ArrowRight, Loader2 } from "lucide-react";
 import supabase from "../../lib/supabaseClient";
 import PublicNav from "../../components/layout/PublicNav";
+import { getNetworkStyle } from "../../lib/networkStyles";
 
 const NETWORK_ORDER = ["MTN", "GLO", "AIRTEL", "9MOBILE"];
 
@@ -84,7 +85,7 @@ export default function PricelistPage() {
             Verronex Pricelist
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            Current prices for data and airtime — no account needed to look.
+            Affordable data and airtime — what you see is what you pay.
           </p>
           <Link
             to="/signup"
@@ -132,14 +133,18 @@ export default function PricelistPage() {
                 </p>
               ) : (
                 <div className="space-y-5">
-                  {groups.map(({ network, plans }) => (
-                    <div
-                      key={network}
-                      className="bg-white/75 backdrop-blur border border-white/60 rounded-2xl shadow-[0_10px_30px_rgba(99,102,246,0.08)] overflow-hidden"
-                    >
-                      <h3 className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-50/80 border-b border-slate-100">
-                        {network} · {plans.length} plan{plans.length !== 1 ? "s" : ""}
-                      </h3>
+                  {groups.map(({ network, plans }) => {
+                    const style = getNetworkStyle(network);
+                    return (
+                      <div
+                        key={network}
+                        className="bg-white/75 backdrop-blur border border-white/60 rounded-2xl shadow-[0_10px_30px_rgba(99,102,246,0.08)] overflow-hidden"
+                      >
+                        <h3
+                          className={`px-4 py-2.5 text-xs font-black uppercase tracking-widest ${style.header}`}
+                        >
+                          {network} · {plans.length} plan{plans.length !== 1 ? "s" : ""}
+                        </h3>
                       <ul className="divide-y divide-slate-100">
                         {plans.map((p, i) => (
                           <li
@@ -161,7 +166,8 @@ export default function PricelistPage() {
                         ))}
                       </ul>
                     </div>
-                  ))}
+                    );
+                  })}
 
                   {groups.length === 0 && (
                     <p className="text-sm text-slate-500 text-center py-6">

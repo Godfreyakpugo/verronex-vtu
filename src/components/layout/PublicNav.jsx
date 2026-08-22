@@ -20,17 +20,17 @@ export default function PublicNav() {
         </Link>
 
         <nav className="flex items-center gap-1 flex-wrap">
-          <NavLink to="/home" className={linkClass}>
+          <NavLink to="/" end className={linkClass}>
             Home
           </NavLink>
-          <NavLink to="/" end className={linkClass}>
+          <NavLink to="/pricelist" className={linkClass}>
             Pricelist
           </NavLink>
 
           {user ? (
             <Link
               to={profile?.is_admin ? "/admin/wallet" : "/dashboard"}
-              className="ml-1 px-4 py-1.5 rounded-xl text-sm font-bold text-white bg-linear-to-r from-indigo-600 to-fuchsia-600 hover:opacity-90 transition-opacity"
+              className="ml-1 px-4 py-1.5 rounded-xl text-sm font-bold text-white bg-linear-to-r from-indigo-600 to-fuchsia-600 shadow-sm hover:opacity-90 transition-opacity"
             >
               Dashboard
             </Link>

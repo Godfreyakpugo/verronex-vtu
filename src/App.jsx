@@ -50,10 +50,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public marketing pages — pricelist is the primary public page */}
-        <Route path="/" element={<PricelistPage />} />
-        <Route path="/pricelist" element={<PricelistPage />} />
+        {/* Public marketing pages — landing is home; full prices on /pricelist */}
+        <Route path="/" element={<LandingPage />} />
         <Route path="/home" element={<LandingPage />} />
+        <Route path="/pricelist" element={<PricelistPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
