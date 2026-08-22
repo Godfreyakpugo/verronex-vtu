@@ -108,15 +108,22 @@ export default function AccountingPage() {
       setSummary(totals);
     } catch (err) {
       console.error("Accounting load error:", err);
-      setError("Could not load accounting data. Please try again.");
+      setError(
+        `Could not load accounting data: ${err?.message || "unknown error"}`,
+      );
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // Intentional fetch-then-render: the immediate loading flag drives the UI.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadAccounting();
-  }, [period, customFrom, customTo, loadAccounting]);
+    // loadAccounting is recreated each render — listing it in deps would
+    // restart the fetch after every state update (infinite reload loop).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, customFrom, customTo]);
 
   const handlePeriodChange = (key) => {
     setPeriod(key);
@@ -135,6 +142,9 @@ export default function AccountingPage() {
   const totalSales = summary.sales;
   const totalProfit = summary.profit;
   const totalTransactions = summary.transactions;
+
+  const periodLabel =
+    PERIOD_OPTIONS.find((o) => o.key === period)?.label ?? "Selected period";
 
   return (
     <div className="space-y-6">
@@ -172,7 +182,9 @@ export default function AccountingPage() {
               <DollarSign className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wider">Today's Sales</p>
+              <p className="text-xs text-slate-500 uppercase tracking-wider">
+                Sales · {periodLabel}
+              </p>
               <p className="text-xl font-black text-slate-900">{formatNaira(totalSales)}</p>
             </div>
           </div>
@@ -184,7 +196,9 @@ export default function AccountingPage() {
               <TrendingUp className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wider">Today's Profit</p>
+              <p className="text-xs text-slate-500 uppercase tracking-wider">
+                Profit · {periodLabel}
+              </p>
               <p className="text-xl font-black text-slate-900">{formatNaira(totalProfit)}</p>
             </div>
           </div>
@@ -196,7 +210,9 @@ export default function AccountingPage() {
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wider">Successful Txns</p>
+              <p className="text-xs text-slate-500 uppercase tracking-wider">
+                Successful Txns · {periodLabel}
+              </p>
               <p className="text-xl font-black text-slate-900">{totalTransactions.toLocaleString()}</p>
             </div>
           </div>
