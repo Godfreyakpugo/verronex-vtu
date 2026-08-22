@@ -21,17 +21,25 @@ as $$
     'plans',
     coalesce(
       (
+        -- Mirror the customer-facing Buy Data catalog exactly:
+        -- active only, no TALKMORE bundles, exact duplicates collapsed.
         select jsonb_agg(
           jsonb_build_object(
-            'network', dp.network,
-            'plan_name', dp.plan_name,
-            'selling_price', dp.selling_price,
-            'validity', dp.validity,
-            'plan_type', dp.plan_type
-          ) order by dp.network asc, dp.selling_price asc
+            'network', network,
+            'plan_name', plan_name,
+            'selling_price', selling_price,
+            'validity', validity,
+            'plan_type', plan_type
+          ) order by network asc, selling_price asc
         )
-        from public.data_plans dp
-        where dp.is_active = true
+        from (
+          select distinct on (dp.network, dp.plan_name, dp.selling_price)
+            dp.network, dp.plan_name, dp.selling_price, dp.validity, dp.plan_type
+          from public.data_plans dp
+          where dp.is_active = true
+            and lower(coalesce(dp.plan_type, '')) not in ('talkmore')
+          order by dp.network asc, dp.selling_price asc, dp.plan_name asc
+        ) active_plans
       ),
       '[]'::jsonb
     ),

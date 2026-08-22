@@ -1,15 +1,13 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Tag, LogIn } from "lucide-react";
+import { ArrowRight, LogIn, Tag } from "lucide-react";
 import BrandLogo from "../../components/ui/BrandLogo";
-import PublicNav from "../../components/layout/PublicNav";
 
-// Extremely simple public landing: understand Verronex -> Sign Up / Login.
+// Extremely simple public landing: one screen, no scrolling.
+// Logo -> headline -> Sign Up / Login -> View Pricelist.
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.12),transparent_50%),linear-gradient(135deg,#eef2ff_0%,#f5f3ff_30%,#fdf4ff_60%,#ffffff_100%)]">
-      <PublicNav />
-
-      <main className="max-w-3xl mx-auto px-4 py-16 sm:py-24 text-center">
+    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.12),transparent_50%),linear-gradient(135deg,#eef2ff_0%,#f5f3ff_30%,#fdf4ff_60%,#ffffff_100%)] flex items-center justify-center px-4">
+      <main className="w-full max-w-md text-center py-10">
         <div className="flex justify-center mb-6">
           <BrandLogo size="lg" />
         </div>
@@ -18,10 +16,6 @@ export default function LandingPage() {
           Affordable VTU services,
           <br className="hidden sm:block" /> simple and convenient.
         </h1>
-        <p className="mt-4 text-sm sm:text-base text-slate-500 max-w-md mx-auto">
-          Buy data and airtime instantly at great prices — top up your wallet
-          once and make purchases in seconds.
-        </p>
 
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link
@@ -38,20 +32,16 @@ export default function LandingPage() {
           </Link>
         </div>
 
-        <div className="mt-6">
+        <div className="mt-8">
           <Link
             to="/"
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-fuchsia-700 hover:text-fuchsia-800 transition-colors"
           >
             <Tag className="w-4 h-4" />
-            View Pricelist
+            View product prices
           </Link>
         </div>
       </main>
-
-      <footer className="pb-8 text-center text-xs text-slate-400">
-        © {new Date().getFullYear()} Verronex VTU
-      </footer>
     </div>
   );
 }
