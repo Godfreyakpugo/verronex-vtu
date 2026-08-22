@@ -10,6 +10,8 @@ import BuyData from "./pages/dashboard/BuyData";
 import BuyAirtime from "./pages/dashboard/BuyAirtime";
 import Transactions from "./pages/dashboard/Transactions";
 import SettingsPage from "./pages/dashboard/Settings";
+import LandingPage from "./pages/public/LandingPage";
+import PricelistPage from "./pages/public/PricelistPage";
 import "./index.css";
 
 // ✅ OUR NEW DOMAIN-DRIVEN IMPORTS
@@ -48,7 +50,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        {/* Public marketing pages — pricelist is the primary public page */}
+        <Route path="/" element={<PricelistPage />} />
+        <Route path="/pricelist" element={<PricelistPage />} />
+        <Route path="/home" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
