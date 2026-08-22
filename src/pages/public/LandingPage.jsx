@@ -12,10 +12,24 @@ import supabase from "../../lib/supabaseClient";
 import BrandLogo from "../../components/ui/BrandLogo";
 import ContinueWithGoogleButton from "../../components/ui/ContinueWithGoogleButton";
 import { useAuth } from "../../context/AuthContext";
-import { getNetworkStyle } from "../../lib/networkStyles";
 
 const HIGHLIGHT_NETWORKS = ["MTN", "AIRTEL", "GLO", "9MOBILE"];
-const PLANS_PER_NETWORK = 3;
+
+function parseValidityDays(validity) {
+  const match = (validity || "").match(/(\d+)\s*-?\s*days?\b/i);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+// Same buckets the app uses elsewhere: <=3 days daily, <=13 weekly, <=45 monthly
+function validityBucket(plan) {
+  const days = parseValidityDays(plan.validity);
+  if (days === null) return "other";
+  if (days <= 3) return "daily";
+  if (days <= 13) return "weekly";
+  return "monthly";
+}
+
+const byPrice = (a, b) => Number(a.selling_price) - Number(b.selling_price);
 
 function naira(value) {
   const v = Number(value) || 0;
@@ -52,15 +66,38 @@ export default function LandingPage() {
     };
   }, []);
 
-  // Cheapest few plans per network — a taste of the prices, not the full list
+  // 7 plans per network: 1 cheap daily, 2 weekly, 4 monthly (cheapest first
+  // within each bucket; short buckets are topped up from the cheapest rest).
   const highlights = useMemo(() => {
     if (!pricelist?.plans?.length) return [];
     return HIGHLIGHT_NETWORKS.map((network) => {
-      const plans = pricelist.plans
+      const all = pricelist.plans
         .filter((p) => p.network === network)
-        .sort((a, b) => Number(a.selling_price) - Number(b.selling_price))
-        .slice(0, PLANS_PER_NETWORK);
-      return { network, plans };
+        .sort(byPrice);
+
+      const bucket = (name) => all.filter((p) => validityBucket(p) === name);
+      const daily = bucket("daily");
+      const weekly = bucket("weekly");
+      const monthly = bucket("monthly");
+
+      let picked = [
+        ...daily.slice(0, 1),
+        ...weekly.slice(0, 2),
+        ...monthly.slice(0, 4),
+      ];
+
+      if (picked.length < 7) {
+        const chosen = new Set(picked);
+        for (const plan of all) {
+          if (picked.length >= 7) break;
+          if (!chosen.has(plan)) {
+            chosen.add(plan);
+            picked.push(plan);
+          }
+        }
+      }
+
+      return { network, plans: picked };
     }).filter((g) => g.plans.length > 0);
   }, [pricelist]);
 
@@ -139,16 +176,13 @@ export default function LandingPage() {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {highlights.map(({ network, plans }) => {
-                const style = getNetworkStyle(network);
                 return (
                   <div
                     key={network}
                     className="bg-white/80 backdrop-blur border border-white/70 rounded-2xl shadow-[0_10px_30px_rgba(99,102,246,0.10)] overflow-hidden"
                   >
-                    {/* Branded network caption */}
-                    <div
-                      className={`px-4 py-2.5 text-xs font-black uppercase tracking-widest ${style.header}`}
-                    >
+                    {/* Neutral caption — brand gradients live on the pricelist page */}
+                    <div className="px-4 py-2.5 text-xs font-black uppercase tracking-widest text-slate-500 bg-slate-50/80">
                       {network}
                     </div>
                     <ul className="divide-y divide-slate-100">
@@ -183,8 +217,13 @@ export default function LandingPage() {
         )}
       </section>
 
-      <footer className="pb-8 text-center text-xs text-slate-400">
-        © {new Date().getFullYear()} Verronex VTU
+      <footer className="pb-8 text-center text-xs text-slate-400 space-y-1">
+        <p>Holy Ghost Bus Terminal 1, Enugu ·{" "}
+          <a href="tel:09029073673" className="hover:text-slate-600 transition-colors">
+            0902 907 3673
+          </a>
+        </p>
+        <p>© {new Date().getFullYear()} Verronex VTU</p>
       </footer>
     </div>
   );
