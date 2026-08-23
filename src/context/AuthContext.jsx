@@ -3,6 +3,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   useCallback,
 } from "react";
@@ -18,6 +19,9 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null); // row from `profiles` table
   const [wallet, setWallet] = useState(null); // row from `wallets` table
   const [loading, setLoading] = useState(true); // true until first auth check completes
+
+  // Single-flight guard: only one hydration may run per user transition.
+  const hydrationInFlightRef = useRef(null);
 
   // ── Fetch helpers ────────────────────────────────────────────────────────────
   const fetchProfile = useCallback(async (userId) => {
@@ -71,7 +75,16 @@ export function AuthProvider({ children }) {
       // read with the caller's own JWT through RLS, then the session is
       // actively revoked rather than just hidden in the UI.
       if (profileData?.deactivated_at) {
-        await supabase.auth.signOut();
+        try {
+          await supabase.auth.signOut();
+        } catch (signOutError) {
+          // A failed revoke request must never trap the app on the loader —
+          // local state is cleared regardless below.
+          console.error(
+            "[AuthContext] sign-out for deactivated account failed:",
+            signOutError?.message,
+          );
+        }
         setUser(null);
         setSession(null);
         setProfile(null);
@@ -87,50 +100,107 @@ export function AuthProvider({ children }) {
     [fetchProfile, fetchWallet],
   );
 
+  // Single-flight hydration: concurrent triggers for the same user (startup
+  // getSession + INITIAL_SESSION/SIGNED_IN event) share one running promise
+  // instead of racing duplicates. The new-signup retry loop inside
+  // hydrateUserData is untouched and still completes within that promise.
+  const runHydration = useCallback(
+    async (userId, isNewSignIn = false) => {
+      const inFlight = hydrationInFlightRef.current;
+      if (inFlight && inFlight.userId === userId) {
+        return inFlight.promise;
+      }
+
+      const promise = hydrateUserData(userId, isNewSignIn).finally(() => {
+        if (hydrationInFlightRef.current?.promise === promise) {
+          hydrationInFlightRef.current = null;
+        }
+      });
+
+      hydrationInFlightRef.current = { userId, promise };
+      return promise;
+    },
+    [hydrateUserData],
+  );
+
   // ── Core: Initialize + listen to auth state ──────────────────────────────────
   useEffect(() => {
     let mounted = true;
 
-    // Check for an existing session on page load/refresh
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!mounted) return;
+    // Check for an existing session on page load/refresh.
+    // Every path below is guaranteed to clear `loading` — a rejected session
+    // recovery or hydration failure falls back to signed-out so protected
+    // routes redirect to login instead of spinning forever.
+    supabase.auth
+      .getSession()
+      .then(async ({ data: { session } }) => {
+        if (!mounted) return;
 
-      setSession(session);
-      setUser(session?.user ?? null);
+        setSession(session);
+        setUser(session?.user ?? null);
 
-      if (session?.user) {
-        await hydrateUserData(session.user.id, false);
-      }
+        if (session?.user) {
+          try {
+            await runHydration(session.user.id, false);
+          } catch (hydrationError) {
+            console.error(
+              "[AuthContext] initial hydration failed:",
+              hydrationError?.message,
+            );
+          }
+        }
 
-      setLoading(false);
-    });
+        if (mounted) setLoading(false);
+      })
+      .catch((sessionError) => {
+        // Session recovery itself failed (e.g. network during token refresh).
+        console.error(
+          "[AuthContext] session recovery failed:",
+          sessionError?.message,
+        );
+        if (!mounted) return;
+        setUser(null);
+        setSession(null);
+        setProfile(null);
+        setWallet(null);
+        setLoading(false);
+      });
 
-    // Real-time listener — fires on login, logout, token refresh, tab focus
+    // Real-time listener — fires on login, logout, token refresh, tab focus.
+    // Wrapped so one failing event can neither throw an unhandled rejection
+    // nor break subsequent auth events; loading always settles.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
-      setSession(session);
-      setUser(session?.user ?? null);
+      try {
+        setSession(session);
+        setUser(session?.user ?? null);
 
-      if (session?.user) {
-        const isNewSignIn = event === "SIGNED_IN";
-        await hydrateUserData(session.user.id, isNewSignIn);
-      } else {
-        // User signed out — clear all personal state
-        setProfile(null);
-        setWallet(null);
+        if (session?.user) {
+          const isNewSignIn = event === "SIGNED_IN";
+          await runHydration(session.user.id, isNewSignIn);
+        } else {
+          // User signed out — clear all personal state
+          setProfile(null);
+          setWallet(null);
+        }
+      } catch (eventError) {
+        console.error(
+          `[AuthContext] auth event "${event}" handling failed:`,
+          eventError?.message,
+        );
+      } finally {
+        if (mounted) setLoading(false);
       }
-
-      setLoading(false);
     });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [hydrateUserData]);
+  }, [runHydration]);
 
   // ─── 3. Auth Actions ─────────────────────────────────────────────────────────
 
