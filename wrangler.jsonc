@@ -1,0 +1,22 @@
+{
+  // Cloudflare Workers configuration for the Verronex VTU React/Vite SPA.
+  //
+  // This Worker serves ONLY static assets built by `npm run build` (./dist).
+  // There is no Worker script (`main`) and no server-side code — all dynamic
+  // behavior lives in Supabase (auth, database, edge functions).
+  //
+  // `not_found_handling: "single-page-application"` makes every unknown path
+  // fall back to dist/index.html so client-side routes (e.g. /login,
+  // /dashboard, /buy-data, /admin/*) survive direct navigation and refresh.
+  //
+  // Custom domains (verronex.com) and route attachments are managed in the
+  // Cloudflare dashboard and intentionally NOT declared here, so deploying
+  // this configuration does not disturb existing domain bindings.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "verronex-vtu",
+  "compatibility_date": "2026-08-24",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
