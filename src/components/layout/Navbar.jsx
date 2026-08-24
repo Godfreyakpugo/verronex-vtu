@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, LogOut } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import BrandLogo from "../ui/BrandLogo";
 import NotificationBell from "../ui/NotificationBell";
@@ -89,7 +89,14 @@ function Navbar({ onMenuClick }) {
           </span>
         </div>
 
-        {/* Sign out */}
+        {/* Sign out — icon on mobile, text from sm up */}
+        <button
+          onClick={signOut}
+          aria-label="Sign out"
+          className="sm:hidden p-2 rounded-xl hover:bg-fuchsia-50 text-slate-400 hover:text-red-500 transition-colors"
+        >
+          <LogOut className="w-5 h-5" />
+        </button>
         <button
           onClick={signOut}
           className="hidden sm:block text-xs font-semibold text-slate-400 hover:text-red-500 transition-colors"
