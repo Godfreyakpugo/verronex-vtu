@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, Link } from "react-router-dom";
 import {
   LayoutDashboard,
   Wifi,
@@ -51,9 +51,11 @@ function Sidebar({ open, onClose }) {
           lg:translate-x-0
         `}
       >
-        {/* Logo */}
+        {/* Logo — click returns to dashboard */}
         <div className="flex items-center justify-between h-16 px-5 border-b border-fuchsia-100/80 shrink-0">
-          <BrandLogo size="sm" />
+          <Link to={ROUTES.DASHBOARD} aria-label="Return to dashboard">
+            <BrandLogo size="sm" />
+          </Link>
           <button
             onClick={onClose}
             className="lg:hidden p-1.5 rounded-lg hover:bg-fuchsia-50 text-slate-400 transition-colors"

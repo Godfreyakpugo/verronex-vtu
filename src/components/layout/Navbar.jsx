@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Menu, X, LogOut } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import BrandLogo from "../ui/BrandLogo";
@@ -45,9 +46,11 @@ function Navbar({ onMenuClick }) {
           <Menu className="w-5 h-5" />
         </button>
 
-        {/* Brand — mobile only */}
+        {/* Brand — mobile only; tap returns to dashboard */}
         <div className="lg:hidden">
-          <BrandLogo size="sm" showText={false} />
+          <Link to="/dashboard" aria-label="Return to dashboard">
+            <BrandLogo size="sm" showText={false} />
+          </Link>
         </div>
 
         {/* Avatar — click opens profile menu */}
