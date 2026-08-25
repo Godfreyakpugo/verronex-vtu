@@ -586,7 +586,7 @@ export default function BuyData() {
                 <label className="block text-sm font-semibold text-slate-700 mb-3">
                   Plan Type
                 </label>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-nowrap gap-2">
                   {availableCategories.map((cat) => {
                     const meta = CATEGORY_META[cat];
                     const Icon = meta.icon;
@@ -596,14 +596,14 @@ export default function BuyData() {
                         key={cat}
                         type="button"
                         onClick={() => handleSelectCategory(cat)}
-                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border-2 text-sm font-semibold transition-all ${
+                        className={`flex flex-1 min-w-0 items-center justify-center gap-1.5 px-1 sm:px-3.5 py-2 rounded-xl border-2 text-sm font-semibold transition-all ${
                           active
                             ? "bg-gradient-to-r from-indigo-600 to-fuchsia-600 border-transparent text-white"
                             : "bg-white border-slate-200 text-slate-600 hover:border-fuchsia-300"
                         }`}
                       >
-                        <Icon className="w-4 h-4" />
-                        {meta.label}
+                        <Icon className="w-4 h-4 shrink-0" />
+                        <span className="truncate">{meta.label}</span>
                       </button>
                     );
                   })}
