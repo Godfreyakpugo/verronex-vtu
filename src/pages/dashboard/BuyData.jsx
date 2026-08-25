@@ -508,7 +508,7 @@ export default function BuyData() {
               No data plans are available right now.
             </p>
           ) : (
-            <div className="flex flex-wrap gap-2.5">
+            <div className="flex flex-nowrap gap-2">
               {networks.map((network) => {
                 const active = selectedNetwork === network;
                 return (
@@ -516,20 +516,20 @@ export default function BuyData() {
                     key={network}
                     type="button"
                     onClick={() => handleSelectNetwork(network)}
-                    className={`flex flex-col items-center gap-1.5 min-w-[76px] rounded-2xl border-2 px-4 py-3 transition-all ${
+                    className={`flex flex-col items-center justify-center gap-1.5 flex-1 min-w-0 rounded-2xl border-2 px-1 py-3 sm:px-4 transition-all ${
                       active
                         ? "border-fuchsia-500 bg-gradient-to-br from-indigo-50 to-fuchsia-50 shadow-[0_6px_20px_rgba(236,72,153,0.18)]"
                         : "border-slate-200 bg-white hover:border-fuchsia-300"
                     }`}
                   >
                     <span
-                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-[11px] ${
+                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 ${
                         getNetworkTheme(network).badge
                       }`}
                     >
                       {getNetworkInitials(network)}
                     </span>
-                    <span className="text-xs font-semibold text-slate-700">
+                    <span className="w-full max-w-full text-center text-xs font-semibold text-slate-700 truncate">
                       {network}
                     </span>
                   </button>
