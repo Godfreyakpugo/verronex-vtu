@@ -107,11 +107,9 @@ function PendingModal({ pending, onClose }) {
           <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mb-3">
             <Clock3 className="w-8 h-8 text-amber-600" />
           </div>
-          <h2 className="font-bold text-xl">Purchase Being Verified</h2>
+          <h2 className="font-bold text-xl">Request Being Verified</h2>
           <p className="text-slate-600 text-sm mt-1.5">
-            Your request was sent but the final provider result is still being
-            confirmed. Please check your transaction history before trying
-            again.
+            Kindly check your balance, or report to admin.
           </p>
         </div>
         {pending.reference && (
