@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
     );
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 32000);
 
     let response = null;
     let fetchError = null;
@@ -168,13 +168,11 @@ Deno.serve(async (req) => {
     let provider = null;
 
     if (fetchError) {
-      provider = {
-        Status: "failed",
-        api_response:
-          fetchError?.name === "AbortError"
-            ? "Gladtidings request timed out after 15s"
-            : `Gladtidings request failed: ${fetchError?.message || "unknown error"}`,
-      };
+      if (fetchError?.name === "AbortError") {
+        console.log("[7] Gladtidings request aborted at 32s (timeout)");
+      }
+      // No fabricated failure here: an aborted/dropped request may still be
+      // processed by Gladtidings server-side, so the outcome is UNKNOWN.
     } else {
       console.log("[7] Gladtidings HTTP status:", response.status);
 
@@ -195,23 +193,12 @@ Deno.serve(async (req) => {
         console.error("[9] Gladtidings response was not JSON:", err?.message);
         provider = null;
       }
-
-      if (provider) {
-        console.log(
-          "[9] Gladtidings parsed response:",
-          JSON.stringify(provider)
-        );
-      } else {
-        provider = {
-          Status: "failed",
-          api_response: rawBody || "Invalid provider response",
-        };
-      }
     }
 
+    // ── Definitive success ────────────────────────────────────────────────
     if (
       response?.ok &&
-      provider.Status?.toLowerCase() === "successful"
+      provider?.Status?.toLowerCase() === "successful"
     ) {
       console.log("[10] Completing transaction via complete_data_purchase");
 
@@ -247,31 +234,54 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log("[11] Calling refund_purchase");
+    // ── Definitive provider rejection ─────────────────────────────────────
+    // Gladtidings processed the request and explicitly reported failure —
+    // safe to refund because no delivery occurred on their side.
+    if (provider?.Status && provider.Status.toLowerCase() !== "successful") {
+      console.log("[11] Calling refund_purchase");
 
-    const { error: refundError } = await supabase.rpc("refund_purchase", {
-      p_reference: reference,
-      p_reason: provider.api_response || "Provider failed",
-    });
+      const { error: refundError } = await supabase.rpc("refund_purchase", {
+        p_reference: reference,
+        p_reason: provider.api_response || "Provider failed",
+      });
 
-    if (refundError) {
+      if (refundError) {
+        return Response.json(
+          {
+            success: false,
+            error: "Refund failed",
+            refundError,
+          },
+          { headers: corsHeaders }
+        );
+      }
+
+      console.log("[12] Refund completed");
+
       return Response.json(
         {
           success: false,
-          error: "Refund failed",
-          refundError,
+          error: provider.api_response || "Purchase failed",
+          provider,
         },
         { headers: corsHeaders }
       );
     }
 
-    console.log("[12] Refund completed");
-
+    // ── Unknown outcome (timeout past 32s, dropped connection, non-OK HTTP
+    // or unparsable body): Gladtidings may still complete the order, so the
+    // transaction stays PENDING for manual resolution — never auto-refunded.
+    console.log(
+      "[14] Unknown provider result — transaction left pending",
+      reference
+    );
     return Response.json(
       {
         success: false,
-        error: provider.api_response || "Purchase failed",
-        provider,
+        pending: true,
+        message:
+          "Your data purchase is being verified and will be confirmed shortly.",
+        reference,
       },
       { headers: corsHeaders }
     );

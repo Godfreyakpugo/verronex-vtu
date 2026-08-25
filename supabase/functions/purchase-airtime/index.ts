@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 32000);
 
     let response: Response | null = null;
     let fetchError: Error | null = null;

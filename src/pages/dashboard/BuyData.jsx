@@ -10,6 +10,7 @@ import {
   CalendarRange,
   Sparkles,
   LayoutGrid,
+  Clock3,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import supabase from "../../lib/supabaseClient";
@@ -96,6 +97,40 @@ function formatNaira(amount) {
   return `₦${value.toLocaleString("en-NG")}`;
 }
 
+function PendingModal({ pending, onClose }) {
+  if (!pending) return null;
+
+  return (
+    <div className="fixed inset-0 z-9999 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+      <GlassCard className="w-full max-w-md p-6">
+        <div className="flex flex-col items-center text-center mb-5">
+          <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mb-3">
+            <Clock3 className="w-8 h-8 text-amber-600" />
+          </div>
+          <h2 className="font-bold text-xl">Purchase Being Verified</h2>
+          <p className="text-slate-600 text-sm mt-1.5">
+            Your request was sent but the final provider result is still being
+            confirmed. Please check your transaction history before trying
+            again.
+          </p>
+        </div>
+        {pending.reference && (
+          <p className="text-xs text-slate-400 text-center mb-5 break-all">
+            Reference: {pending.reference}
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold py-3 hover:opacity-90 transition-opacity"
+        >
+          Alright
+        </button>
+      </GlassCard>
+    </div>
+  );
+}
+
 async function extractFunctionErrorMessage(error) {
   // supabase-js v2: FunctionsHttpError carries the real message in
   // error.context (a Response) when the edge function returns non-2xx.
@@ -178,6 +213,7 @@ export default function BuyData() {
 
   const [toast, setToast] = useState(null);
   const [successReceipt, setSuccessReceipt] = useState(null);
+  const [pending, setPending] = useState(null);
 
   useEffect(() => {
     let ignore = false;
@@ -377,6 +413,21 @@ export default function BuyData() {
 
       if (data?.error) {
         throw new Error(data.error);
+      }
+
+      // Unknown provider outcome (e.g. timeout past 32s): the wallet stays
+      // debited and the transaction remains pending for verification — never
+      // treated as a failure, so the user is not misled or double-charged.
+      if (data?.pending) {
+        setConfirmOpen(false);
+        setPending({
+          message:
+            data.message ||
+            "Your data purchase is being verified and will be confirmed shortly.",
+          reference: data.reference,
+        });
+        refreshWallet();
+        return;
       }
 
       if (data?.success === false) {
@@ -721,6 +772,8 @@ export default function BuyData() {
         receipt={successReceipt}
         onClose={() => setSuccessReceipt(null)}
       />
+
+      <PendingModal pending={pending} onClose={() => setPending(null)} />
     </div>
   );
 }
