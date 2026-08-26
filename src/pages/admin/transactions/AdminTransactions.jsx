@@ -6,6 +6,8 @@ import {
   History,
   Search,
   Loader2,
+  AlertTriangle,
+  ArrowUpDown,
 } from "lucide-react";
 import supabase from "../../../lib/supabaseClient";
 import GlassCard from "../../../components/ui/GlassCard";
@@ -13,6 +15,7 @@ import TransactionDetailModal from "../../../components/ui/TransactionDetailModa
 import {
   buildTransactionView,
   sanitizeSearchTerm,
+  formatNaira,
 } from "../../../lib/transactionView";
 
 const PAGE_SIZE = 20;
@@ -67,6 +70,15 @@ export default function AdminTransactions() {
   const offsetRef = useRef(0);
   const latestReq = useRef(0);
   const debounceRef = useRef(null);
+
+  // Status change modal state
+  const [statusChangeRow, setStatusChangeRow] = useState(null);
+  const [targetStatus, setTargetStatus] = useState("");
+  const [statusReason, setStatusReason] = useState("");
+  const [statusChanging, setStatusChanging] = useState(false);
+
+  const [actionError, setActionError] = useState("");
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     clearTimeout(debounceRef.current);
@@ -123,6 +135,14 @@ export default function AdminTransactions() {
   const showRefundAction = (view) => view.category === "wallet_debit";
   const showDeliveredAction = (view) =>
     view.category === "airtime_purchase" || view.category === "data";
+
+  const isStatusChangeEligible = (view) => {
+    // Eligible: debit VTU transactions (data, airtime, wallet_debit) with status that can be toggled
+    // Allow pending/successful/completed/failed to be set to successful/failed
+    const eligibleCategories = ["data", "airtime_purchase", "wallet_debit"];
+    const eligibleStatuses = ["successful", "completed", "failed", "pending"];
+    return eligibleCategories.includes(view.category) && eligibleStatuses.includes(view.status);
+  };
 
   async function showConfirmModal(title, onConfirm) {
     const reason = window.prompt("Enter reason for this action:");
@@ -186,8 +206,91 @@ export default function AdminTransactions() {
     });
   }
 
-  const [actionError, setActionError] = useState("");
-  const [notice, setNotice] = useState("");
+  function openStatusChange(row) {
+    setActionError("");
+    setStatusChangeRow(row);
+    setTargetStatus("");
+    setStatusReason("");
+  }
+
+  function closeStatusChange() {
+    if (statusChanging) return;
+    setStatusChangeRow(null);
+    setTargetStatus("");
+    setStatusReason("");
+    setActionError("");
+  }
+
+  async function performStatusChange() {
+    if (!statusChangeRow || statusChanging) return;
+    if (!["successful", "failed"].includes(targetStatus)) {
+      setActionError("Select a target status: successful or failed.");
+      return;
+    }
+    if (!statusReason.trim()) {
+      setActionError("Reason is required for status change.");
+      return;
+    }
+
+    // Warning confirmation for financial actions
+    const amountLabel = formatNaira(statusChangeRow.amount);
+    const currentView = buildTransactionView(statusChangeRow);
+    const currentStatus = currentView?.status || statusChangeRow.status;
+
+    // If same status, no financial action but still confirm
+    if (currentStatus === targetStatus || (currentStatus === "completed" && targetStatus === "successful")) {
+      setActionError("Transaction is already in that status.");
+      return;
+    }
+
+    let confirmMsg;
+    if (targetStatus === "failed") {
+      confirmMsg = `Changing this transaction to Failed will refund ${amountLabel} to the customer's wallet.\n\nCurrent: ${currentStatus}\nNew: failed\nAmount: ${amountLabel}\n\nThis refund will happen ONLY ONCE. A second change to failed will not refund again.\n\nReason: ${statusReason.trim()}\n\nConfirm?`;
+    } else {
+      confirmMsg = `Changing this transaction to Successful will NOT debit the customer's wallet again.\n\nCurrent: ${currentStatus}\nNew: successful\nAmount: ${amountLabel}\n\nNo additional charge will be made. Status will be set to successful.\n\nReason: ${statusReason.trim()}\n\nConfirm?`;
+    }
+
+    if (!window.confirm(confirmMsg)) return;
+
+    setStatusChanging(true);
+    setActionError("");
+    try {
+      const { data, error: err } = await supabase.rpc(
+        "admin_set_transaction_status",
+        {
+          p_transaction_id: statusChangeRow.id,
+          p_new_status: targetStatus,
+          p_reason: statusReason.trim(),
+        },
+      );
+
+      if (err) throw err;
+
+      // Refresh data
+      await runQuery(0, false, ++latestReq.current);
+
+      setSelected(null);
+      closeStatusChange();
+
+      const refunded = data?.refunded;
+      const newBal = data?.new_balance;
+      if (targetStatus === "failed" && refunded) {
+        setNotice(
+          `Transaction marked as failed. ${amountLabel} refunded to wallet.${newBal != null ? ` New balance: ${formatNaira(newBal)}.` : ""}`,
+        );
+      } else if (targetStatus === "failed") {
+        setNotice(`Transaction marked as failed. No additional refund (already refunded).`);
+      } else {
+        setNotice(`Transaction marked as successful. No wallet debit.`);
+      }
+    } catch (err) {
+      setActionError(
+        err?.message || "Failed to update transaction status. Please try again.",
+      );
+    } finally {
+      setStatusChanging(false);
+    }
+  }
 
   useEffect(() => {
     const noticeTimeout = setTimeout(() => {
@@ -301,6 +404,7 @@ export default function AdminTransactions() {
               const Icon = view.icon;
               const canRefund = showRefundAction(view);
               const canDeliver = showDeliveredAction(view);
+              const canStatusChange = isStatusChangeEligible(view);
 
               return (
                 <button
@@ -362,27 +466,67 @@ export default function AdminTransactions() {
                   </div>
 
                   {/* Action buttons — appear based on transaction category */}
-                  {(canDeliver || canRefund) && (
-                    <div className="mt-3 flex gap-2">
+                  {(canDeliver || canRefund || canStatusChange) && (
+                    <div className="mt-3 flex flex-wrap gap-2">
                       {canDeliver && (
-                        <button
-                          type="button"
-                          onClick={() => markAsDelivered(row)}
-                          className="flex items-center gap-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 hover:brightness-110 transition-all"
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markAsDelivered(row);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.stopPropagation();
+                              markAsDelivered(row);
+                            }
+                          }}
+                          className="flex items-center gap-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 hover:brightness-110 transition-all cursor-pointer"
                         >
                           <CheckCircle2 className="w-3 h-3" />
                           Delivered
-                        </button>
+                        </span>
                       )}
                       {canRefund && (
-                        <button
-                          type="button"
-                          onClick={() => refundTransaction(row)}
-                          className="flex items-center gap-1.5 rounded-xl bg-amber-600 text-white text-xs font-bold px-3 py-1.5 hover:brightness-110 transition-all"
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            refundTransaction(row);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.stopPropagation();
+                              refundTransaction(row);
+                            }
+                          }}
+                          className="flex items-center gap-1.5 rounded-xl bg-amber-600 text-white text-xs font-bold px-3 py-1.5 hover:brightness-110 transition-all cursor-pointer"
                         >
                           <XCircle className="w-3 h-3" />
                           Refund
-                        </button>
+                        </span>
+                      )}
+                      {canStatusChange && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openStatusChange(row);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.stopPropagation();
+                              openStatusChange(row);
+                            }
+                          }}
+                          className="flex items-center gap-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 hover:brightness-110 transition-all cursor-pointer"
+                        >
+                          <ArrowUpDown className="w-3 h-3" />
+                          Change Status
+                        </span>
                       )}
                     </div>
                   )}
@@ -417,16 +561,158 @@ export default function AdminTransactions() {
         onClose={() => setSelected(null)}
       />
 
-      {/* Notification / action feedback area */}
-      {notice && (
-        <div className="fixed top-4 right-4 GlassCard p-4 text-left">
-          <p className="text-sm text-emerald-700">{notice}</p>
+      {/* Status Change Modal */}
+      {statusChangeRow && (
+        <div className="fixed inset-0 z-9999 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <GlassCard className="w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-bold text-lg flex items-center gap-2">
+                <ArrowUpDown className="w-5 h-5 text-indigo-600" />
+                Change Transaction Status
+              </h2>
+              <button
+                type="button"
+                onClick={closeStatusChange}
+                aria-label="Close"
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            {(() => {
+              const view = buildTransactionView(statusChangeRow);
+              return (
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 mb-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500">Current status</span>
+                    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full ${view.statusBadge}`}>
+                      {view.statusLabel}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500">Amount</span>
+                    <span className="text-sm font-black text-slate-800">{formatNaira(statusChangeRow.amount)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500">Reference</span>
+                    <span className="text-xs font-mono text-slate-700 truncate max-w-[150px]">{statusChangeRow.reference}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500">User</span>
+                    <span className="text-xs font-semibold text-slate-700 truncate max-w-[150px]">{statusChangeRow.user_full_name || statusChangeRow.user_email}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="mb-4">
+              <label className="text-sm font-bold text-slate-700 block mb-2">New Status</label>
+              <div className="grid grid-cols-2 gap-2">
+                {["successful", "failed"].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setTargetStatus(s)}
+                    className={`px-4 py-3 rounded-xl border-2 text-sm font-bold capitalize transition-all ${
+                      targetStatus === s
+                        ? s === "failed"
+                          ? "bg-red-50 border-red-300 text-red-700 shadow-sm"
+                          : "bg-emerald-50 border-emerald-300 text-emerald-700 shadow-sm"
+                        : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="text-sm font-bold text-slate-700 block mb-2">Reason (required)</label>
+              <textarea
+                rows={3}
+                value={statusReason}
+                onChange={(e) => setStatusReason(e.target.value)}
+                placeholder={
+                  targetStatus === "failed"
+                    ? "e.g. Provider confirmed failure, refund required"
+                    : targetStatus === "successful"
+                      ? "e.g. Provider confirmed delivery, mark successful"
+                      : "Enter reason for status change"
+                }
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
+              />
+            </div>
+
+            {/* Warning */}
+            {targetStatus === "failed" && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 flex gap-2 mb-4">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <p className="text-xs font-semibold text-amber-800 leading-relaxed">
+                  Changing to <span className="font-black">Failed</span> will refund{" "}
+                  <span className="font-black">{formatNaira(statusChangeRow.amount)}</span> to the customer&apos;s wallet. This refund happens only once — a second change to failed will not refund again.
+                </p>
+              </div>
+            )}
+            {targetStatus === "successful" && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 flex gap-2 mb-4">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <p className="text-xs font-semibold text-emerald-800 leading-relaxed">
+                  Changing to <span className="font-black">Successful</span> will <span className="font-black">NOT</span> debit the wallet again. No new charge will be created.
+                </p>
+              </div>
+            )}
+
+            {actionError && (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600 mb-4">
+                {actionError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeStatusChange}
+                disabled={statusChanging}
+                className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={statusChanging || !targetStatus || !statusReason.trim()}
+                onClick={performStatusChange}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              >
+                {statusChanging ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <ArrowUpDown className="w-4 h-4" />
+                )}
+                Update Status
+              </button>
+            </div>
+          </GlassCard>
         </div>
       )}
 
-      {actionError && (
-        <div className="fixed top-4 right-4 GlassCard p-4 text-center">
-          <p className="text-sm text-red-600">{actionError}</p>
+      {/* Notification / action feedback area */}
+      {notice && (
+        <div className="fixed top-4 right-4 z-50 max-w-sm">
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-lg flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <p className="text-sm font-semibold text-emerald-700">{notice}</p>
+          </div>
+        </div>
+      )}
+
+      {actionError && !statusChangeRow && (
+        <div className="fixed top-4 right-4 z-50 max-w-sm">
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 shadow-lg flex items-start gap-3">
+            <XCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <p className="text-sm font-semibold text-red-600">{actionError}</p>
+          </div>
         </div>
       )}
     </div>
