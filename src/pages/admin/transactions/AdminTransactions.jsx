@@ -33,7 +33,6 @@ const STATUS_FILTERS = [
   { key: "successful", label: "Successful" },
   { key: "pending", label: "Pending" },
   { key: "failed", label: "Failed" },
-  { key: "delivered", label: "Delivered" },
   { key: "refunded", label: "Refunded" },
 ];
 
@@ -133,8 +132,6 @@ export default function AdminTransactions() {
   }
 
   const showRefundAction = (view) => view.category === "wallet_debit";
-  const showDeliveredAction = (view) =>
-    view.category === "airtime_purchase" || view.category === "data";
 
   const isStatusChangeEligible = (view) => {
     // Eligible: debit VTU transactions (data, airtime, wallet_debit) with status that can be toggled
@@ -151,33 +148,6 @@ export default function AdminTransactions() {
       return;
     }
     onConfirm(reason.trim());
-  }
-
-  async function markAsDelivered(row) {
-    showConfirmModal("Mark Transaction as Delivered", async (reason) => {
-      setActionError("");
-      try {
-        const { error: err } = await supabase.rpc(
-          "admin_mark_transaction_delivered",
-          {
-            p_transaction_id: row.id,
-            p_investigation_reason: reason,
-          },
-        );
-
-        if (err) throw err;
-
-        // Refresh data
-        await runQuery(0, false, ++latestReq.current);
-
-        setSelected(null);
-        setNotice(`Transaction marked as delivered. Reason: ${reason}`);
-      } catch (err) {
-        setActionError(
-          err?.message || "Failed to mark as delivered. Please try again.",
-        );
-      }
-    });
   }
 
   async function refundTransaction(row) {
@@ -403,7 +373,6 @@ export default function AdminTransactions() {
               const view = buildTransactionView(row);
               const Icon = view.icon;
               const canRefund = showRefundAction(view);
-              const canDeliver = showDeliveredAction(view);
               const canStatusChange = isStatusChangeEligible(view);
 
               return (
@@ -466,28 +435,8 @@ export default function AdminTransactions() {
                   </div>
 
                   {/* Action buttons — appear based on transaction category */}
-                  {(canDeliver || canRefund || canStatusChange) && (
+                  {(canRefund || canStatusChange) && (
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {canDeliver && (
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            markAsDelivered(row);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.stopPropagation();
-                              markAsDelivered(row);
-                            }
-                          }}
-                          className="flex items-center gap-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 hover:brightness-110 transition-all cursor-pointer"
-                        >
-                          <CheckCircle2 className="w-3 h-3" />
-                          Delivered
-                        </span>
-                      )}
                       {canRefund && (
                         <span
                           role="button"
