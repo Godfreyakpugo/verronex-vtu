@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { MessageCircle, X, ExternalLink } from "lucide-react";
 
 /**
@@ -9,6 +10,7 @@ import { MessageCircle, X, ExternalLink } from "lucide-react";
  * - Fixed bottom-6 right-6, viewport-safe on mobile
  */
 export default function FloatingMessageButton() {
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
   const triggerRef = useRef(null);
@@ -56,6 +58,20 @@ export default function FloatingMessageButton() {
     }, 30);
     return () => clearTimeout(id);
   }, [open]);
+
+  // Close popup when navigating (esp. to hidden pages)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOpen(false);
+  }, [location.pathname]);
+
+  // Hide on buy-data and buy-airtime pages per requirement
+  if (
+    location.pathname === "/buy-data" ||
+    location.pathname === "/buy-airtime"
+  ) {
+    return null;
+  }
 
   return (
     <div
