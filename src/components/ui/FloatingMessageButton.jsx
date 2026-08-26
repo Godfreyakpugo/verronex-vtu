@@ -3,8 +3,8 @@ import { MessageCircle, X, ExternalLink } from "lucide-react";
 
 /**
  * Floating "Message Us" — minimal & compact.
- * - Indigo→violet gradient (no fuchsia)
- * - Compact sizing: px-3 py-1.5 / px-4 py-2, text-sm, w-4 h-4 icon
+ * - Matches dashboard accent: from-indigo-600 to-fuchsia-600 (AGENTS.md + Dashboard quickActions)
+ * - Compact sizing: px-4 py-2, text-sm, w-4 h-4 icon
  * - Single WhatsApp popup card
  * - Fixed bottom-6 right-6, viewport-safe on mobile
  */
@@ -70,13 +70,12 @@ export default function FloatingMessageButton() {
           aria-modal="false"
           aria-label="WhatsApp contact"
           aria-labelledby="fab-wa-title"
-          className="pointer-events-auto w-[calc(100vw-3rem)] sm:w-72 max-w-[320px] overflow-hidden rounded-2xl bg-white border border-slate-200 shadow-[0_16px_40px_rgba(79,70,229,0.14),0_4px_12px_rgba(0,0,0,0.06)] animate-[fab-in_0.18s_cubic-bezier(0.16,1,0.3,1)] origin-bottom-right"
+          className="pointer-events-auto w-[calc(100vw-3rem)] sm:w-72 max-w-[320px] overflow-hidden rounded-2xl bg-white border border-fuchsia-200/60 shadow-[0_16px_40px_rgba(192,38,211,0.14),0_4px_12px_rgba(0,0,0,0.06)] animate-[fab-in_0.18s_cubic-bezier(0.16,1,0.3,1)] origin-bottom-right"
         >
           <div className="p-4">
             <div className="flex items-start gap-3">
-              {/* WhatsApp icon — emerald circle for brand recognition, not fuchsia */}
+              {/* WhatsApp icon — emerald for brand, card matches dashboard palette */}
               <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center shadow-sm shadow-emerald-500/20 shrink-0">
-                {/* Minimal WhatsApp glyph: MessageCircle with emerald */}
                 <MessageCircle className="w-5 h-5 text-white" aria-hidden="true" />
               </div>
               <div className="flex-1 min-w-0">
@@ -97,7 +96,7 @@ export default function FloatingMessageButton() {
                   triggerRef.current?.focus();
                 }}
                 aria-label="Close contact popup"
-                className="shrink-0 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                className="shrink-0 p-1.5 rounded-full hover:bg-fuchsia-50 text-slate-400 hover:text-slate-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -107,7 +106,7 @@ export default function FloatingMessageButton() {
               href={whatsappHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/30 hover:brightness-[1.04] active:scale-[0.98] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2"
+              className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-fuchsia-500/20 hover:shadow-fuchsia-500/30 hover:brightness-[1.04] active:scale-[0.98] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400 focus-visible:ring-offset-2"
             >
               Open WhatsApp
               <ExternalLink className="w-4 h-4" aria-hidden="true" />
@@ -120,7 +119,7 @@ export default function FloatingMessageButton() {
         </div>
       )}
 
-      {/* ── Compact trigger ── */}
+      {/* ── Compact trigger — matches dashboard QuickActions (from-fuchsia-600 to-purple-600) & AGENTS gradient (from-indigo-600 to-fuchsia-600) ── */}
       <button
         ref={triggerRef}
         type="button"
@@ -128,9 +127,9 @@ export default function FloatingMessageButton() {
         aria-label={open ? "Close contact menu" : "Open contact menu — Message Us"}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className="pointer-events-auto group relative inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-lg hover:shadow-indigo-500/30 hover:scale-[1.03] active:scale-95 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+        className="pointer-events-auto group relative inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 px-4 py-2 text-sm font-semibold text-white shadow-lg hover:shadow-fuchsia-500/30 hover:scale-[1.03] active:scale-95 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
       >
-        {/* Subtle online dot — indigo palette, not fuchsia */}
+        {/* Subtle online dot — emerald, matching app's verified/online cues */}
         <span className="relative flex items-center justify-center shrink-0">
           {open ? (
             <X className="w-4 h-4 text-white" aria-hidden="true" />
