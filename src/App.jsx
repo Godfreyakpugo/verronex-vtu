@@ -12,6 +12,7 @@ import Transactions from "./pages/dashboard/Transactions";
 import SettingsPage from "./pages/dashboard/Settings";
 import LandingPage from "./pages/public/LandingPage";
 import PricelistPage from "./pages/public/PricelistPage";
+import FloatingMessageButton from "./components/ui/FloatingMessageButton";
 import "./index.css";
 
 // ✅ OUR NEW DOMAIN-DRIVEN IMPORTS
@@ -203,6 +204,7 @@ export default function App() {
           }
         />
       </Routes>
+      <FloatingMessageButton />
     </BrowserRouter>
   );
 }
