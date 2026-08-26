@@ -69,6 +69,16 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (
+      req.headers.get("x-test-provider-failure") === "true" ||
+      req.headers.get("x-test-refund-failure") === "true"
+    ) {
+      return Response.json(
+        { error: "Test hooks are not allowed in production." },
+        { status: 403, headers: corsHeaders }
+      );
+    }
+
     const body = await req.json();
 
     const network = body?.network ?? null;

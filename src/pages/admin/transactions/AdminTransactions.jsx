@@ -135,31 +135,33 @@ export default function AdminTransactions() {
 
   async function markAsDelivered(row) {
     showConfirmModal("Mark Transaction as Delivered", async (reason) => {
-
       setActionError("");
       try {
-        const { error: err } = await supabase.rpc("admin_mark_transaction_delivered", {
-          p_transaction_id: row.id,
-          p_investigation_reason: reason,
-        });
+        const { error: err } = await supabase.rpc(
+          "admin_mark_transaction_delivered",
+          {
+            p_transaction_id: row.id,
+            p_investigation_reason: reason,
+          },
+        );
 
         if (err) throw err;
 
         // Refresh data
         await runQuery(0, false, ++latestReq.current);
-  
+
         setSelected(null);
         setNotice(`Transaction marked as delivered. Reason: ${reason}`);
       } catch (err) {
-        setActionError(err?.message || "Failed to mark as delivered. Please try again.");
-  
+        setActionError(
+          err?.message || "Failed to mark as delivered. Please try again.",
+        );
       }
     });
   }
 
   async function refundTransaction(row) {
     showConfirmModal("Refund Transaction", async (reason) => {
-
       setActionError("");
       try {
         const { error: err } = await supabase.rpc("admin_refund_transaction", {
@@ -171,12 +173,15 @@ export default function AdminTransactions() {
 
         // Refresh data
         await runQuery(0, false, ++latestReq.current);
-  
+
         setSelected(null);
-        setNotice(`Transaction refunded. ₹${row.amount} credited back to wallet.`);
+        setNotice(
+          `Transaction refunded. ₹${row.amount} credited back to wallet.`,
+        );
       } catch (err) {
-        setActionError(err?.message || "Failed to refund transaction. Please try again.");
-  
+        setActionError(
+          err?.message || "Failed to refund transaction. Please try again.",
+        );
       }
     });
   }
@@ -233,7 +238,7 @@ export default function AdminTransactions() {
               onClick={() => setCategory(key)}
               className={`shrink-0 px-4 py-2 rounded-xl border-2 text-sm font-semibold transition-all ${
                 category === key
-                  ? "bg-gradient-to-r from-indigo-600 to-fuchsia-600 border-transparent text-white shadow-[0_6px_18px_rgba(236,72,153,0.25)]"
+                  ? "bg-linear-to-r from-indigo-600 to-fuchsia-600 border-transparent text-white shadow-[0_6px_18px_rgba(236,72,153,0.25)]"
                   : "bg-white border-slate-200 text-slate-600 hover:border-fuchsia-300"
               }`}
             >
@@ -249,7 +254,7 @@ export default function AdminTransactions() {
               onClick={() => setStatus(key)}
               className={`shrink-0 px-4 py-2 rounded-xl border-2 text-sm font-semibold transition-all ${
                 status === key
-                  ? "bg-gradient-to-r from-indigo-600 to-fuchsia-600 border-transparent text-white shadow-[0_6px_18px_rgba(236,72,153,0.25)]"
+                  ? "bg-linear-to-r from-indigo-600 to-fuchsia-600 border-transparent text-white shadow-[0_6px_18px_rgba(236,72,153,0.25)]"
                   : "bg-white border-slate-200 text-slate-600 hover:border-fuchsia-300"
               }`}
             >
@@ -323,12 +328,14 @@ export default function AdminTransactions() {
                         </p>
                       </div>
                     </div>
-                    <p className={`text-sm font-bold shrink-0 ${view.amountColor}`}>
+                    <p
+                      className={`text-sm font-bold shrink-0 ${view.amountColor}`}
+                    >
                       {view.amountLabel}
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between gap-3 mt-2.5 pl-[52px]">
+                  <div className="flex items-center justify-between gap-3 mt-2.5 pl-13">
                     <div className="flex items-center gap-2 min-w-0">
                       <span
                         className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${view.iconTheme}`}
