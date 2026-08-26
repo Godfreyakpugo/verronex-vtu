@@ -164,16 +164,18 @@ Thank you.`;
     };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      {/* Hero */}
-      <div className="rounded-3xl bg-[linear-gradient(135deg,#312e81,#7c3aed,#d946ef)] text-white p-8 shadow-xl">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 backdrop-blur flex items-center justify-center">
-            <Wallet className="w-6 h-6 text-white" />
+    <div className="max-w-3xl mx-auto space-y-4">
+      {/* Hero — compact banner, not a quarter of the page */}
+      <div className="rounded-2xl bg-[linear-gradient(135deg,#312e81,#7c3aed,#d946ef)] text-white px-5 py-4 shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 backdrop-blur flex items-center justify-center shrink-0">
+            <Wallet className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-black tracking-tight">Fund Wallet</h1>
-            <p className="mt-1 text-purple-200">
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight">
+              Fund Wallet
+            </h1>
+            <p className="text-xs sm:text-sm text-purple-200">
               Add money to your Verronex wallet
             </p>
           </div>
@@ -181,52 +183,54 @@ Thank you.`;
       </div>
 
       {/* Bank details */}
-      <GlassCard className="p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-fuchsia-100 flex items-center justify-center">
-            <Building2 className="w-6 h-6 text-fuchsia-600" />
+      <GlassCard className="p-4">
+        <div className="flex items-center gap-2.5 mb-3">
+          <div className="w-9 h-9 rounded-xl bg-fuchsia-100 flex items-center justify-center shrink-0">
+            <Building2 className="w-4.5 h-4.5 text-fuchsia-600" />
           </div>
           <div>
             <h2 className="font-bold text-slate-800">Bank Transfer</h2>
-            <p className="text-sm text-slate-500">
+            <p className="text-xs text-slate-500">
               Make a transfer using your banking app.
             </p>
           </div>
         </div>
 
-        <div className="space-y-5">
-          <div>
-            <p className="text-xs font-bold uppercase text-slate-500">Bank</p>
-            <p className="text-lg font-semibold">{BANK_NAME}</p>
+        <div className="space-y-2.5">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-[11px] font-bold uppercase text-slate-400 shrink-0">
+              Bank
+            </p>
+            <p className="text-sm font-semibold text-right">{BANK_NAME}</p>
           </div>
 
-          <div>
-            <p className="text-xs font-bold uppercase text-slate-500">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-[11px] font-bold uppercase text-slate-400 shrink-0">
               Account Name
             </p>
-            <p className="text-lg font-semibold">{ACCOUNT_NAME}</p>
+            <p className="text-sm font-semibold text-right">{ACCOUNT_NAME}</p>
           </div>
 
           <div>
-            <p className="text-xs font-bold uppercase text-slate-500">
+            <p className="text-[11px] font-bold uppercase text-slate-400">
               Account Number
             </p>
-            <div className="flex items-center justify-between rounded-2xl border border-fuchsia-100 bg-fuchsia-50 px-5 py-4">
-              <span className="text-2xl font-black tracking-widest">
+            <div className="flex items-center justify-between rounded-xl border border-fuchsia-100 bg-fuchsia-50 px-3 py-2">
+              <span className="text-base sm:text-lg font-black tracking-[0.15em]">
                 {ACCOUNT_NUMBER}
               </span>
               <button
                 onClick={copyAccount}
-                className="flex items-center gap-2 rounded-xl bg-fuchsia-600 px-4 py-2 text-white font-semibold hover:bg-fuchsia-700 transition-colors"
+                className="flex items-center gap-1.5 rounded-lg bg-fuchsia-600 px-3 py-1.5 text-xs text-white font-semibold hover:bg-fuchsia-700 transition-colors"
               >
                 {copied ? (
                   <>
-                    <CheckCircle2 className="w-4 h-4" />
+                    <CheckCircle2 className="w-3.5 h-3.5" />
                     Copied
                   </>
                 ) : (
                   <>
-                    <Copy className="w-4 h-4" />
+                    <Copy className="w-3.5 h-3.5" />
                     Copy
                   </>
                 )}
@@ -237,19 +241,19 @@ Thank you.`;
       </GlassCard>
 
       {/* Funding form */}
-      <GlassCard className="p-6">
-        <div className="mb-5">
+      <GlassCard className="p-4">
+        <div className="mb-3">
           <h2 className="font-bold text-slate-800">Funding Details</h2>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 mt-0.5">
             Enter the amount you transferred.
           </p>
         </div>
 
-        <label className="text-sm font-bold text-slate-700 block mb-2">
+        <label className="text-xs font-bold text-slate-700 block mb-1.5">
           Amount (₦)
         </label>
         <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
             ₦
           </span>
           <input
@@ -260,24 +264,25 @@ Thank you.`;
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="5,000"
-            className="w-full rounded-2xl border border-fuchsia-100 bg-fuchsia-50 pl-9 pr-4 py-3.5 font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-fuchsia-400"
+            className="w-full rounded-xl border border-fuchsia-100 bg-fuchsia-50 pl-8 pr-4 py-2.5 font-semibold text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-fuchsia-400"
           />
         </div>
 
         {!amountValid && amount.trim() !== "" && (
-          <p className="mt-2 text-xs font-semibold text-red-500">
+          <p className="mt-1.5 text-xs font-semibold text-red-500">
             Enter a whole Naira amount above zero (max ₦
             {MAX_AMOUNT.toLocaleString("en-NG")}).
           </p>
         )}
 
-        <div className="mt-3 flex flex-wrap gap-2">
+        {/* One shrinking line — never wraps, never truncates */}
+        <div className="mt-2.5 flex flex-nowrap gap-1.5">
           {QUICK_AMOUNTS.map((value) => (
             <button
               key={value}
               type="button"
               onClick={() => setAmount(String(value))}
-              className={`rounded-xl border px-4 py-2 text-sm font-semibold transition-all ${
+              className={`flex-1 min-w-0 whitespace-nowrap text-center rounded-lg border px-0.5 py-1.5 text-[11px] sm:text-sm font-semibold transition-all ${
                 Number(amount) === value
                   ? "bg-linear-to-r from-fuchsia-600 to-purple-600 border-transparent text-white shadow"
                   : "bg-white border-fuchsia-200 text-slate-600 hover:border-fuchsia-400"
@@ -288,20 +293,20 @@ Thank you.`;
           ))}
         </div>
 
-        <div className="mt-5">
-          <label className="text-sm font-bold text-slate-700 block mb-2">
+        <div className="mt-3.5">
+          <label className="text-xs font-bold text-slate-700 block mb-1.5">
             Payment Reference (Optional)
           </label>
           <input
             value={reference}
             onChange={(e) => setReference(e.target.value)}
             placeholder="Bank reference (if available)"
-            className="w-full rounded-2xl border border-fuchsia-100 bg-fuchsia-50 px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-fuchsia-400"
+            className="w-full rounded-xl border border-fuchsia-100 bg-fuchsia-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-400"
           />
         </div>
 
         {error && (
-          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+          <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-600">
             {error}
           </div>
         )}
@@ -309,15 +314,15 @@ Thank you.`;
         <button
           onClick={handleFundingRequest}
           disabled={loading}
-          className="mt-6 w-full rounded-2xl bg-[linear-gradient(135deg,#d946ef,#7c3aed)] py-4 text-white font-bold flex items-center justify-center gap-3 shadow-lg shadow-fuchsia-500/30 hover:brightness-110 transition-all disabled:opacity-50"
+          className="mt-4 w-full rounded-xl bg-[linear-gradient(135deg,#d946ef,#7c3aed)] py-3 text-white font-bold flex items-center justify-center gap-2.5 shadow-lg shadow-fuchsia-500/30 hover:brightness-110 transition-all disabled:opacity-50 text-sm sm:text-base"
         >
           {loading ? (
             <Loader2 className="w-5 h-5 animate-spin" />
           ) : (
             <>
-              <MessageCircle className="w-5 h-5" />
+              <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
               I've Made Payment
-              <ArrowRight className="w-5 h-5" />
+              <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
             </>
           )}
         </button>
@@ -325,14 +330,14 @@ Thank you.`;
 
       {/* Confirmation */}
       {submitted && (
-        <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6">
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
           <div className="flex items-center gap-3 mb-3">
             <CheckCircle2 className="w-8 h-8 text-emerald-600" />
             <h3 className="text-lg font-black text-slate-900">
               Funding Request Submitted
             </h3>
           </div>
-          <p className="text-3xl font-black text-emerald-600">
+          <p className="text-xl font-black text-emerald-600">
             {formatNaira(submitted.amount)}
           </p>
           <p className="mt-2 text-sm text-emerald-800">
@@ -348,8 +353,8 @@ Thank you.`;
       )}
 
       {/* Recent funding requests */}
-      <GlassCard className="p-6">
-        <div className="flex items-center justify-between mb-4">
+      <GlassCard className="p-4">
+        <div className="flex items-center justify-between mb-3">
           <h2 className="font-bold text-slate-800">Recent Funding Requests</h2>
           {!requestsLoading && recentRequests.length > 0 && (
             <span className="text-xs font-bold text-slate-400">
