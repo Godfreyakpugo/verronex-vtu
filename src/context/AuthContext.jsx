@@ -238,7 +238,48 @@ export function AuthProvider({ children }) {
 
     // Reject deactivated accounts: read the profile with this user's own
     // authenticated session and refuse login if the account was deactivated.
-    const profileData = await fetchProfile(data.user.id);
+    // This lookup is bounded so a hanging PostgREST request cannot hold the
+    // login spinner indefinitely (see production hang diagnosis). Successful
+    // auth is not invalidated by a profile timeout — hydration will retry.
+    let profileData = null;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 7000);
+    try {
+      const { data: fetchedProfile, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", data.user.id)
+        .abortSignal(controller.signal)
+        .single();
+
+      if (profileError) {
+        if (controller.signal.aborted) {
+          console.warn(
+            "[AuthContext] profile fetch timed out after 7s, proceeding with login",
+          );
+        } else {
+          console.error("[AuthContext] fetchProfile error:", profileError.message);
+        }
+      } else {
+        profileData = fetchedProfile;
+      }
+    } catch (err) {
+      if (
+        controller.signal.aborted ||
+        err?.name === "AbortError" ||
+        err?.message?.toLowerCase().includes("abort")
+      ) {
+        console.warn(
+          "[AuthContext] profile fetch aborted/timed out, proceeding with login:",
+          err?.message,
+        );
+      } else {
+        console.error("[AuthContext] profile fetch failed:", err?.message);
+      }
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
     if (profileData?.deactivated_at) {
       try {
         await supabase.auth.signOut();

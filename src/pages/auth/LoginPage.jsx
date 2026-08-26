@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import supabase from "../../lib/supabaseClient";
 import BrandLogo from "../../components/ui/BrandLogo";
+import Toast from "../../components/ui/Toast";
 
 function GoogleIcon() {
   return (
@@ -38,6 +39,18 @@ function LoginPage() {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  // Safety-net timer refs for the 10s UI safeguard (not the root fix)
+  const loginTimeoutRef = useRef(null);
+  const pendingRef = useRef(false);
+  const toastShownRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      if (loginTimeoutRef.current) clearTimeout(loginTimeoutRef.current);
+    };
+  }, []);
 
   const handleSignIn = async () => {
     if (!email || !password) {
@@ -45,18 +58,56 @@ function LoginPage() {
       return;
     }
     setError(null);
+    setToast(null);
     setBusy(true);
+    pendingRef.current = true;
+    toastShownRef.current = false;
+
+    if (loginTimeoutRef.current) clearTimeout(loginTimeoutRef.current);
+    loginTimeoutRef.current = setTimeout(() => {
+      if (!pendingRef.current || toastShownRef.current) return;
+      toastShownRef.current = true;
+      setBusy(false);
+      setToast({
+        type: "error",
+        title: "Login is taking longer than expected",
+        message: "Please reload the page and try again.",
+      });
+    }, 10000);
+
     try {
       await signIn({ email, password });
+      if (loginTimeoutRef.current) {
+        clearTimeout(loginTimeoutRef.current);
+        loginTimeoutRef.current = null;
+      }
+      // If the safety-net already fired, do not navigate — user saw toast
+      if (toastShownRef.current) return;
+      pendingRef.current = false;
       navigate("/dashboard");
     } catch (err) {
+      if (loginTimeoutRef.current) {
+        clearTimeout(loginTimeoutRef.current);
+        loginTimeoutRef.current = null;
+      }
+      // If safety-net already showed toast, avoid duplicate error toast
+      if (toastShownRef.current) {
+        pendingRef.current = false;
+        return;
+      }
+      pendingRef.current = false;
       setError(
         err?.message ||
           err?.error_description ||
           "Invalid email or password. Please try again.",
       );
     } finally {
-      setBusy(false);
+      if (loginTimeoutRef.current) {
+        clearTimeout(loginTimeoutRef.current);
+        loginTimeoutRef.current = null;
+      }
+      pendingRef.current = false;
+      if (!toastShownRef.current) setBusy(false);
     }
   };
 
@@ -87,6 +138,12 @@ function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.12),transparent_50%),linear-gradient(135deg,#eef2ff_0%,#f5f3ff_30%,#fdf4ff_60%,#ffffff_100%)] px-4 py-12">
+      <Toast
+        type={toast?.type}
+        title={toast?.title}
+        message={toast?.message}
+        onDismiss={() => setToast(null)}
+      />
       <div className="w-full max-w-sm">
         <div className="bg-white/75 backdrop-blur-2xl border border-white/60 rounded-3xl shadow-[0_25px_60px_rgba(99,102,246,0.18)] overflow-hidden">
           {/* Dark hero header */}
