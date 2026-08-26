@@ -26,7 +26,7 @@ const navItems = [
   { to: ROUTES.SETTINGS, icon: Settings, label: "Settings" },
 ];
 
-function Sidebar({ open, onClose }) {
+function Sidebar({ open, onClose, pendingCount = 0 }) {
   const { profile } = useAuth();
   const isAdmin = profile?.is_admin === true;
 
@@ -127,8 +127,25 @@ function Sidebar({ open, onClose }) {
                   }
                 `}
               >
-                <Wallet className="w-4 h-4 shrink-0" />
-                Funding Requests
+                {({ isActive }) => (
+                  <>
+                    <Wallet className="w-4 h-4 shrink-0" />
+                    <span className="flex-1 text-left">Funding Requests</span>
+                    {pendingCount > 0 && (
+                      <span
+                        className={`ml-auto min-w-5 h-5 px-1.5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none
+                          ${
+                            isActive
+                              ? "bg-white/20 text-white border border-white/30"
+                              : "bg-fuchsia-600 text-white shadow-sm shadow-fuchsia-500/20"
+                          }`}
+                        aria-label={`${pendingCount} pending funding requests`}
+                      >
+                        {pendingCount > 99 ? "99+" : pendingCount}
+                      </span>
+                    )}
+                  </>
+                )}
               </NavLink>
 
               <NavLink

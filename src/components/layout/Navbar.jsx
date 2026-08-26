@@ -5,7 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import BrandLogo from "../ui/BrandLogo";
 import NotificationBell from "../ui/NotificationBell";
 
-function Navbar({ onMenuClick }) {
+function Navbar({ onMenuClick, pendingFundingCount = 0 }) {
   const { profile, wallet, signOut } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
@@ -41,9 +41,20 @@ function Navbar({ onMenuClick }) {
         {/* Hamburger — mobile only */}
         <button
           onClick={onMenuClick}
-          className="lg:hidden p-2 rounded-xl hover:bg-fuchsia-50 text-slate-500 transition-colors"
+          className="lg:hidden relative p-2 rounded-xl hover:bg-fuchsia-50 text-slate-500 transition-colors"
+          aria-label={
+            pendingFundingCount > 0
+              ? `Open menu, ${pendingFundingCount} pending funding requests`
+              : "Open menu"
+          }
         >
           <Menu className="w-5 h-5" />
+          {pendingFundingCount > 0 && (
+            <span
+              className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-gradient-to-r from-purple-600 to-fuchsia-600 border-2 border-white shadow-sm"
+              aria-hidden="true"
+            />
+          )}
         </button>
 
         {/* Brand — mobile only; tap returns to dashboard */}
