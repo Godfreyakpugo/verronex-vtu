@@ -139,7 +139,22 @@ Deno.serve(async (req) => {
         p_reference: reference,
         p_reason: "Gladtidings credentials are not configured",
       });
-      console.error("[3] Refund after missing config:", refundError?.message);
+      console.error("[3] Refund after missing config:", {
+        reference,
+        refundErrorMessage: refundError?.message ?? "unknown",
+      });
+
+      if (refundError) {
+        return Response.json(
+          {
+            error:
+              "Airtime service is not configured. We could not automatically restore your wallet balance. Please contact support with your transaction reference.",
+            reference,
+          },
+          { status: 502, headers: corsHeaders }
+        );
+      }
+
       return Response.json(
         {
           error:
@@ -213,16 +228,20 @@ Deno.serve(async (req) => {
         p_reference: reference,
         p_reason: reason,
       });
-      console.error("[5] Refund after provider failure:", refundError?.message);
+      console.error("[5] Refund after provider failure:", {
+        reference,
+        refundErrorMessage: refundError?.message ?? "unknown",
+      });
 
       if (refundError) {
         return Response.json(
           {
             success: false,
             error:
-              "Airtime purchase failed and your wallet could not be automatically refunded. Please contact support.",
+              "Airtime purchase could not be completed. We could not automatically restore your wallet balance. Please contact support with your transaction reference.",
+            reference,
           },
-          { status: 500, headers: corsHeaders }
+          { status: 502, headers: corsHeaders }
         );
       }
 
