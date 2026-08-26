@@ -47,7 +47,7 @@ async function extractFunctionErrorMessage(error) {
       const body = await error.context.json();
       if (body?.error) return body.error;
       if (body?.message) return body.message;
-    } catch (_jsonErr) {
+    } catch {
       // context wasn't JSON (or already consumed) — fall through
     }
   }
@@ -297,6 +297,7 @@ export default function BuyAirtime() {
       }
     } catch (err) {
       setConfirmOpen(false);
+      refreshWallet();
       setToast({
         type: "error",
         title: "Purchase Failed",
@@ -325,7 +326,7 @@ export default function BuyAirtime() {
       if (providerResponseBody) {
         providerResponse = providerResponseBody;
       }
-    } catch (_err) {
+    } catch {
       // receipt still works without the extra provider detail
     }
 

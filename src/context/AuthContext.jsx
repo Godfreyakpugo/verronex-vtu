@@ -179,8 +179,11 @@ export function AuthProvider({ children }) {
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          const isNewSignIn = event === "SIGNED_IN";
-          await runHydration(session.user.id, isNewSignIn);
+          const isHydrating = event === "SIGNED_IN" || event === "INITIAL_SESSION";
+          if (isHydrating) {
+            const isNewSignIn = event === "SIGNED_IN";
+            await runHydration(session.user.id, isNewSignIn);
+          }
         } else {
           // User signed out — clear all personal state
           setProfile(null);
@@ -218,8 +221,6 @@ export function AuthProvider({ children }) {
       },
     });
 
-    console.log("SIGNUP RESULT:", result);
-
     if (result.error) {
       console.error("SUPABASE SIGNUP ERROR:", result.error);
       throw result.error;
@@ -239,7 +240,11 @@ export function AuthProvider({ children }) {
     // authenticated session and refuse login if the account was deactivated.
     const profileData = await fetchProfile(data.user.id);
     if (profileData?.deactivated_at) {
-      await supabase.auth.signOut();
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // signOut may fail if session is already invalid — that's acceptable
+      }
       throw new Error(
         "This account has been deactivated. Please contact support.",
       );

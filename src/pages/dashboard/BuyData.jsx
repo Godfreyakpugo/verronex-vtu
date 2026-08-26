@@ -137,7 +137,7 @@ async function extractFunctionErrorMessage(error) {
       const body = await error.context.json();
       if (body?.error) return body.error;
       if (body?.message) return body.message;
-    } catch (_jsonErr) {
+    } catch {
       // context wasn't JSON (or already consumed) — fall through
     }
   }
@@ -429,6 +429,7 @@ export default function BuyData() {
       }
 
       if (data?.success === false) {
+        refreshWallet();
         throw new Error(data.error || "Purchase failed. Please try again.");
       }
 

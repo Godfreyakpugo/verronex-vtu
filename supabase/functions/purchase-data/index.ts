@@ -6,6 +6,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+function normalizeNigerianPhone(raw: unknown): string | null {
+  const digits = String(raw ?? "").replace(/\D/g, "");
+  const normalized = digits.startsWith("234") ? "0" + digits.slice(3) : digits;
+  return /^0[7-9]\d{9}$/.test(normalized) ? normalized : null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -54,6 +60,14 @@ Deno.serve(async (req) => {
     if (!planId || !phoneNumber) {
       return Response.json(
         { error: "Missing fields" },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    const normalizedPhone = normalizeNigerianPhone(phoneNumber);
+    if (!normalizedPhone) {
+      return Response.json(
+        { error: "Invalid Nigerian phone number" },
         { status: 400, headers: corsHeaders }
       );
     }
@@ -146,7 +160,7 @@ Deno.serve(async (req) => {
           headers: gladtidingsHeaders,
           body: JSON.stringify({
             network: purchase.network_id,
-            mobile_number: phoneNumber,
+            mobile_number: normalizedPhone,
             plan: Number(purchase.api_plan_id),
             Ported_number: true,
             ident: reference,
@@ -249,10 +263,10 @@ Deno.serve(async (req) => {
         return Response.json(
           {
             success: false,
-            error: "Refund failed",
-            refundError,
+            error:
+              "Data purchase failed and your wallet could not be automatically refunded. Please contact support.",
           },
-          { headers: corsHeaders }
+          { status: 500, headers: corsHeaders }
         );
       }
 

@@ -214,6 +214,18 @@ Deno.serve(async (req) => {
         p_reason: reason,
       });
       console.error("[5] Refund after provider failure:", refundError?.message);
+
+      if (refundError) {
+        return Response.json(
+          {
+            success: false,
+            error:
+              "Airtime purchase failed and your wallet could not be automatically refunded. Please contact support.",
+          },
+          { status: 500, headers: corsHeaders }
+        );
+      }
+
       return Response.json(
         {
           success: false,

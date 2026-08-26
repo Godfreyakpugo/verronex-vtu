@@ -8,9 +8,36 @@ if (!hasSupabaseConfig) {
   console.warn('Missing Supabase environment variables: VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY')
 }
 
+const noopChain = {
+  eq: () => noopChain,
+  neq: () => noopChain,
+  gt: () => noopChain,
+  gte: () => noopChain,
+  lt: () => noopChain,
+  lte: () => noopChain,
+  like: () => noopChain,
+  ilike: () => noopChain,
+  in: () => noopChain,
+  is: () => noopChain,
+  order: () => noopChain,
+  limit: () => noopChain,
+  range: () => noopChain,
+  single: async () => ({ data: null, error: null }),
+  then: (resolve) => resolve({ data: [], error: null }),
+}
+
+const noopFrom = () => ({
+  select: () => noopChain,
+  insert: () => ({ ...noopChain, select: () => noopChain }),
+  update: () => noopChain,
+  upsert: () => ({ ...noopChain, select: () => noopChain }),
+  delete: () => noopChain,
+})
+
 const createNoopSupabaseClient = () => ({
   auth: {
     getSession: async () => ({ data: { session: null }, error: null }),
+    getUser: async () => ({ data: { user: null }, error: null }),
     onAuthStateChange: () => ({
       data: {
         subscription: {
@@ -20,15 +47,18 @@ const createNoopSupabaseClient = () => ({
     }),
     signUp: async () => ({ data: null, error: new Error('Supabase is not configured') }),
     signInWithPassword: async () => ({ data: null, error: new Error('Supabase is not configured') }),
+    signInWithOtp: async () => ({ data: null, error: new Error('Supabase is not configured') }),
+    updateUser: async () => ({ data: null, error: new Error('Supabase is not configured') }),
     signOut: async () => ({ error: null }),
   },
-  from: () => ({
-    select: () => ({
-      eq: () => ({
-        single: async () => ({ data: null, error: null }),
-      }),
+  from: noopFrom,
+  rpc: async () => ({ data: null, error: null }),
+  functions: {
+    invoke: async () => ({
+      data: null,
+      error: new Error('Supabase is not configured'),
     }),
-  }),
+  },
 })
 
 const supabase = hasSupabaseConfig

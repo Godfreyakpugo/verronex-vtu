@@ -50,29 +50,6 @@ function userFor(row) {
   };
 }
 
-function StatusBadge({ status }) {
-  const meta = {
-    successful: { label: "Successful", badge: "bg-emerald-100 text-emerald-700" },
-    completed: { label: "Successful", badge: "bg-emerald-100 text-emerald-700" },
-    pending: { label: "Pending", badge: "bg-amber-100 text-amber-700" },
-    failed: { label: "Failed", badge: "bg-red-100 text-red-600" },
-    delivered: {
-      label: "Delivered",
-      badge: "bg-emerald-100 text-emerald-700",
-    },
-    refunded: {
-      label: "Refunded",
-      badge: "bg-amber-100 text-amber-700",
-    },
-  };
-  const m = meta[status] || { label: status || "Pending", badge: "bg-slate-100 text-slate-600" };
-  return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full">
-      <span className={m.badge}>{m.label}</span>
-    </span>
-  );
-}
-
 export default function AdminTransactions() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -158,10 +135,10 @@ export default function AdminTransactions() {
 
   async function markAsDelivered(row) {
     showConfirmModal("Mark Transaction as Delivered", async (reason) => {
-      setActing(true);
+
       setActionError("");
       try {
-        const { data, error: err } = await supabase.rpc("admin_mark_transaction_delivered", {
+        const { error: err } = await supabase.rpc("admin_mark_transaction_delivered", {
           p_transaction_id: row.id,
           p_investigation_reason: reason,
         });
@@ -170,22 +147,22 @@ export default function AdminTransactions() {
 
         // Refresh data
         await runQuery(0, false, ++latestReq.current);
-        setActing(false);
+  
         setSelected(null);
         setNotice(`Transaction marked as delivered. Reason: ${reason}`);
       } catch (err) {
         setActionError(err?.message || "Failed to mark as delivered. Please try again.");
-        setActing(false);
+  
       }
     });
   }
 
   async function refundTransaction(row) {
     showConfirmModal("Refund Transaction", async (reason) => {
-      setActing(true);
+
       setActionError("");
       try {
-        const { data, error: err } = await supabase.rpc("admin_refund_transaction", {
+        const { error: err } = await supabase.rpc("admin_refund_transaction", {
           p_transaction_id: row.id,
           p_reason: reason,
         });
@@ -194,17 +171,16 @@ export default function AdminTransactions() {
 
         // Refresh data
         await runQuery(0, false, ++latestReq.current);
-        setActing(false);
+  
         setSelected(null);
         setNotice(`Transaction refunded. ₹${row.amount} credited back to wallet.`);
       } catch (err) {
         setActionError(err?.message || "Failed to refund transaction. Please try again.");
-        setActing(false);
+  
       }
     });
   }
 
-  const [acting, setActing] = useState(false);
   const [actionError, setActionError] = useState("");
   const [notice, setNotice] = useState("");
 

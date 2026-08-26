@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Mail, Lock, User, Phone, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import supabase from "../../lib/supabaseClient";
@@ -76,7 +76,6 @@ function Field({
 }
 
 function SignupPage() {
-  const navigate = useNavigate();
   const { signUp } = useAuth();
 
   const [fullName, setFullName] = useState("");

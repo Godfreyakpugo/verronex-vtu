@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   Users,
   Lock,
@@ -12,7 +12,6 @@ import GlassCard from "../../components/ui/GlassCard";
 
 function SettingsPage() {
   const { user, profile, refreshProfile } = useAuth();
-  const navigate = useNavigate();
 
   const [section, setSection] = useState("account");
   const [editing, setEditing] = useState(false);
@@ -117,31 +116,6 @@ function SettingsPage() {
     });
   };
 
-  const handleResetPassword = async () => {
-    setError(null);
-    if (!form.email) {
-      setError("Please enter your email address.");
-      return;
-    }
-
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: form.email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-      if (error) throw error;
-      setSuccess(
-        "A password reset link has been sent to your email address.",
-      );
-    } catch (err) {
-      setError(
-        err?.message || err?.error_description || "Failed to send reset email.",
-      );
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.12),transparent_50%),linear-gradient(135deg,#eef2ff_0%,#f5f3ff_30%,#fdf4ff_60%,#ffffff_100%)] p-4 lg:p-6">
       <div className="max-w-2xl mx-auto">
@@ -179,6 +153,17 @@ function SettingsPage() {
             </button>
           ))}
         </div>
+
+        {error && (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-600">
+            {success}
+          </div>
+        )}
 
         {/* Account Section */}
         {section === "account" && (

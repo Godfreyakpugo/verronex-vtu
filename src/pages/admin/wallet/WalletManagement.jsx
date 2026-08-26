@@ -21,7 +21,6 @@ function WalletManagement() {
   const [walletLoading, setWalletLoading] = useState(false);
 
   const [searchError, setSearchError] = useState(null);
-  const [creditError, setCreditError] = useState(null);
   const [creditSuccess, setCreditSuccess] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingCredit, setPendingCredit] = useState(null);
@@ -56,14 +55,6 @@ function WalletManagement() {
     fetchRecentActions();
   }, []);
 
-  // Catch incoming user from User Management page
-  useEffect(() => {
-    if (location.state?.prefilledUser) {
-      selectUser(location.state.prefilledUser);
-      window.history.replaceState({}, document.title);
-    }
-  }, [location.state]);
-
   // Click outside closes search dropdown
   useEffect(() => {
     function handleClickOutside(e) {
@@ -92,7 +83,6 @@ function WalletManagement() {
     if (targetUser && value !== searchTerm) {
       setTargetUser(null);
       setTargetWallet(null);
-      setCreditError(null);
       setCreditSuccess(null);
     }
 
@@ -182,7 +172,6 @@ function WalletManagement() {
     setSearchResults([]);
 
     setSearchError(null);
-    setCreditError(null);
     setCreditSuccess(null);
     setWalletLoading(true);
 
@@ -195,7 +184,6 @@ function WalletManagement() {
 
       if (error) {
         console.error("Failed to fetch wallet for selected user:", error);
-        setCreditError(error.message || "Could not load the user's wallet.");
         setTargetWallet(null);
         return;
       }
@@ -210,7 +198,6 @@ function WalletManagement() {
     if (!targetUser || !pendingCredit) return;
 
     setConfirmOpen(false);
-    setCreditError(null);
     setCrediting(true);
 
     try {
@@ -282,7 +269,7 @@ function WalletManagement() {
         setSearchTerm("");
       }, 1500);
     } catch (err) {
-      setCreditError(err?.message || "Adjustment failed. Please try again.");
+      console.error("Adjustment failed:", err);
     } finally {
       setCrediting(false);
     }
@@ -292,10 +279,7 @@ function WalletManagement() {
     if (!targetUser) return;
     if (crediting) return;
 
-    if (!amount || amount <= 0) {
-      setCreditError("Enter a valid amount.");
-      return;
-    }
+    if (!amount || amount <= 0) return;
 
     setPendingCredit({
       mode,
@@ -305,6 +289,14 @@ function WalletManagement() {
     });
     setConfirmOpen(true);
   };
+
+  // Catch incoming user from User Management page (after selectUser is declared)
+  useEffect(() => {
+    if (location.state?.prefilledUser) {
+      selectUser(location.state.prefilledUser);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const isSearching = searchTerm.trim() !== "" && showResults;
 
