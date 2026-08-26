@@ -485,10 +485,10 @@ export default function BuyData() {
         onDismiss={() => setToast(null)}
       />
 
-      <GlassCard className="p-5 lg:p-6 space-y-1">
+      <GlassCard className="p-4 space-y-1">
         {/* Network */}
         <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-3">
+          <label className="block text-sm font-semibold text-slate-700 mb-2">
             Network
           </label>
 
@@ -516,14 +516,14 @@ export default function BuyData() {
                     key={network}
                     type="button"
                     onClick={() => handleSelectNetwork(network)}
-                    className={`flex flex-col items-center justify-center gap-1.5 flex-1 min-w-0 rounded-2xl border-2 px-1 py-3 sm:px-4 transition-all ${
+                    className={`flex flex-col items-center justify-center gap-1 flex-1 min-w-0 rounded-2xl border-2 px-1 py-2.5 transition-all ${
                       active
                         ? "border-fuchsia-500 bg-gradient-to-br from-indigo-50 to-fuchsia-50 shadow-[0_6px_20px_rgba(236,72,153,0.18)]"
                         : "border-slate-200 bg-white hover:border-fuchsia-300"
                     }`}
                   >
                     <span
-                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 ${
+                      className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 ${
                         getNetworkTheme(network).badge
                       }`}
                     >
@@ -540,10 +540,10 @@ export default function BuyData() {
         </div>
 
         {/* Phone number */}
-        <div className="pt-5">
+        <div className="pt-4">
           <label
             htmlFor="phoneNumber"
-            className="block text-sm font-semibold text-slate-700 mb-3"
+            className="block text-sm font-semibold text-slate-700 mb-2"
           >
             Phone Number
           </label>
@@ -582,11 +582,13 @@ export default function BuyData() {
         >
           <div className="overflow-hidden">
             {selectedNetwork && (
-              <div className="pt-5">
-                <label className="block text-sm font-semibold text-slate-700 mb-3">
+              <div className="pt-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Plan Type
                 </label>
-                <div className="flex flex-nowrap gap-2">
+                {/* Full labels, never truncated: text shrinks on thin screens;
+                    with 5+ types the icons drop out so words always fit */}
+                <div className="flex flex-nowrap gap-1.5">
                   {availableCategories.map((cat) => {
                     const meta = CATEGORY_META[cat];
                     const Icon = meta.icon;
@@ -596,14 +598,20 @@ export default function BuyData() {
                         key={cat}
                         type="button"
                         onClick={() => handleSelectCategory(cat)}
-                        className={`flex flex-1 min-w-0 items-center justify-center gap-1.5 px-1 sm:px-3.5 py-2 rounded-xl border-2 text-sm font-semibold transition-all ${
+                        className={`flex flex-1 min-w-0 items-center justify-center gap-1 px-1 py-2 rounded-xl border-2 text-[11px] sm:text-sm font-semibold transition-all ${
                           active
                             ? "bg-gradient-to-r from-indigo-600 to-fuchsia-600 border-transparent text-white"
                             : "bg-white border-slate-200 text-slate-600 hover:border-fuchsia-300"
                         }`}
                       >
-                        <Icon className="w-4 h-4 shrink-0" />
-                        <span className="truncate">{meta.label}</span>
+                        <Icon
+                          className={`${
+                            availableCategories.length > 4
+                              ? "hidden"
+                              : "w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0"
+                          }`}
+                        />
+                        <span className="whitespace-nowrap">{meta.label}</span>
                       </button>
                     );
                   })}
@@ -611,13 +619,13 @@ export default function BuyData() {
                 <button
                   type="button"
                   onClick={handleToggleViewAll}
-                  className={`mt-2.5 flex items-center gap-1.5 px-3.5 py-2 rounded-xl border-2 text-sm font-semibold transition-all ${
+                  className={`mt-1.5 flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 text-xs sm:text-sm font-semibold transition-all ${
                     viewAll
                       ? "bg-gradient-to-r from-indigo-600 to-fuchsia-600 border-transparent text-white"
                       : "bg-white border-slate-200 text-slate-600 hover:border-fuchsia-300"
                   }`}
                 >
-                  <LayoutGrid className="w-4 h-4" />
+                  <LayoutGrid className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   View all plans
                 </button>
               </div>
@@ -633,8 +641,8 @@ export default function BuyData() {
         >
           <div className="overflow-hidden">
             {(selectedCategory || viewAll) && (
-              <div className="pt-5">
-                <label className="block text-sm font-semibold text-slate-700 mb-3">
+              <div className="pt-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Plan
                 </label>
                 {visiblePlans.length === 0 ? (
@@ -642,7 +650,7 @@ export default function BuyData() {
                     No plans found in this category.
                   </p>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {visiblePlans.map((plan) => {
                       const active = selectedPlanId === plan.id;
                       return (
@@ -650,7 +658,7 @@ export default function BuyData() {
                           key={plan.id}
                           type="button"
                           onClick={() => handleSelectPlan(plan.id)}
-                          className={`text-left rounded-2xl border-2 p-3.5 transition-all ${
+                          className={`text-left rounded-2xl border-2 p-3 transition-all ${
                             active
                               ? "border-fuchsia-500 bg-gradient-to-br from-indigo-50 to-fuchsia-50 shadow-[0_6px_20px_rgba(236,72,153,0.18)]"
                               : "border-slate-200 bg-white hover:border-fuchsia-300"
