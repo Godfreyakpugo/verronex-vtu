@@ -14,6 +14,7 @@ import {
 import GlassCard from "../../../components/ui/GlassCard";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
 import supabase from "../../../lib/supabaseClient";
+import SEO from "../../../components/seo/SEO";
 
 const formatDate = (value) =>
   value ? new Date(value).toLocaleString() : "";
@@ -239,6 +240,7 @@ export default function AdminNotifications() {
 
   return (
     <div className="space-y-6">
+      <SEO title="Notifications — Verronex VTU" robots="noindex, nofollow" canonical={null} />
       <GlassCard className="p-6">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-linear-to-br from-fuchsia-600 to-purple-600 flex items-center justify-center text-white shrink-0">

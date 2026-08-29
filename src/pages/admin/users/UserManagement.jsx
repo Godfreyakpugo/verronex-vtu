@@ -4,6 +4,7 @@ import GlassCard from "../../../components/ui/GlassCard";
 import supabase from "../../../lib/supabaseClient";
 import UserFilters from "./UserFilters";
 import UserListItem from "./UserListItem";
+import SEO from "../../../components/seo/SEO";
 
 const TIER_LABELS = {
   basic: "Basic",
@@ -103,6 +104,7 @@ export default function UserManagement() {
 
   return (
     <div className="space-y-6">
+      <SEO title="User Management — Verronex VTU" robots="noindex, nofollow" canonical={null} />
       <GlassCard className="p-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center gap-3">

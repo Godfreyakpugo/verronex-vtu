@@ -4,6 +4,7 @@ import GlassCard from "../../../components/ui/GlassCard";
 import DataPlanManagement from "./DataPlanManagement";
 import AirtimeManagement from "./AirtimeManagement";
 import AccountingPage from "../accounting/AccountingPage";
+import SEO from "../../../components/seo/SEO";
 // We will import this later when we build it!
 // import DataCardManagement from "./DataCardManagement";
 
@@ -12,6 +13,7 @@ export default function ProductsDashboard() {
 
   return (
     <div className="space-y-6">
+      <SEO title="Products — Verronex VTU" robots="noindex, nofollow" canonical={null} />
       {/* Hero Header */}
       <div className="p-7 rounded-3xl bg-linear-to-br from-indigo-900 via-purple-800 to-fuchsia-700 shadow-xl shadow-purple-900/20 relative overflow-hidden">
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-fuchsia-500 rounded-full mix-blend-screen filter blur-[80px] opacity-60 pointer-events-none" />

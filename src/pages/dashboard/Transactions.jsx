@@ -8,6 +8,7 @@ import {
   buildTransactionView,
   sanitizeSearchTerm,
 } from "../../lib/transactionView";
+import SEO from "../../components/seo/SEO";
 
 const PAGE_SIZE = 15;
 
@@ -118,6 +119,7 @@ export default function Transactions() {
 
   return (
     <div className="space-y-6">
+      <SEO title="Transactions — Verronex VTU" robots="noindex, nofollow" canonical={null} />
       <header>
         <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-fuchsia-600 bg-clip-text text-transparent">
           Transactions

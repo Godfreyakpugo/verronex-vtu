@@ -7,6 +7,7 @@ import UserCard from "./UserCard";
 import RecentWalletAdjustments from "./RecentWalletAdjustments";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
 import WalletAdjustment from "./WalletAdjustment";
+import SEO from "../../../components/seo/SEO";
 
 function WalletManagement() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -302,6 +303,7 @@ function WalletManagement() {
 
   return (
     <div className="space-y-6">
+      <SEO title="Wallet Management — Verronex VTU" robots="noindex, nofollow" canonical={null} />
       {/* Hero header */}
       <div className="p-7 rounded-3xl bg-linear-to-br from-indigo-900 via-purple-800 to-fuchsia-700 shadow-xl shadow-purple-900/20 relative overflow-hidden">
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-fuchsia-500 rounded-full mix-blend-screen filter blur-[80px] opacity-60 pointer-events-none" />

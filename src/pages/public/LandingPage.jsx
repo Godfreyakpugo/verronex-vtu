@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   ArrowRight,
   LogIn,
@@ -12,6 +12,8 @@ import supabase from "../../lib/supabaseClient";
 import BrandLogo from "../../components/ui/BrandLogo";
 import ContinueWithGoogleButton from "../../components/ui/ContinueWithGoogleButton";
 import { useAuth } from "../../context/AuthContext";
+import SEO from "../../components/seo/SEO";
+import logoUrl from "../../assets/vtu-verronex-logo.png";
 
 const HIGHLIGHT_NETWORKS = ["MTN", "AIRTEL", "GLO", "9MOBILE"];
 
@@ -43,6 +45,13 @@ function naira(value) {
 //   hero -> pricing highlights (a few per network) -> view all prices.
 export default function LandingPage() {
   const { user, profile } = useAuth();
+  const location = useLocation();
+  const isHomeAlias = location.pathname === "/home";
+  const canonicalUrl = "https://verronex.com/";
+  const pageTitle = "Verronex — Nigerian VTU Platform for Cheap Data & Airtime";
+  const pageDescription =
+    "Verronex is a Nigerian VTU platform for buying affordable mobile data and airtime. Fund your wallet once and top up any MTN, Airtel, Glo or 9mobile number instantly at great prices.";
+  const absoluteImage = `https://verronex.com${logoUrl}`;
   const [pricelist, setPricelist] = useState(null);
   const [loadError, setLoadError] = useState(false);
 
@@ -106,6 +115,19 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.12),transparent_50%),linear-gradient(135deg,#eef2ff_0%,#f5f3ff_30%,#fdf4ff_60%,#ffffff_100%)]">
+      <SEO
+        title={pageTitle}
+        description={pageDescription}
+        canonical={canonicalUrl}
+        robots="index, follow"
+        ogTitle={pageTitle}
+        ogDescription={pageDescription}
+        ogUrl={canonicalUrl}
+        ogImage={absoluteImage}
+        twitterTitle={pageTitle}
+        twitterDescription={pageDescription}
+        twitterImage={absoluteImage}
+      />
       {/* ── Hero ─────────────────────────────────────────────── */}
       <section className="max-w-3xl mx-auto px-4 pt-16 sm:pt-24 pb-12 text-center">
         <div className="flex justify-center mb-6">
@@ -113,12 +135,12 @@ export default function LandingPage() {
         </div>
 
         <h1 className="text-3xl sm:text-4xl font-black tracking-tight bg-gradient-to-r from-indigo-600 to-fuchsia-600 bg-clip-text text-transparent">
-          Affordable VTU services,
-          <br className="hidden sm:block" /> simple and convenient.
+          Verronex — Nigerian VTU Platform for Affordable Data &amp; Airtime
         </h1>
-        <p className="mt-4 text-sm sm:text-base text-slate-500 max-w-md mx-auto">
-          Buy data and airtime instantly at great prices — top up your wallet
-          once and make purchases in seconds.
+        <p className="mt-4 text-sm sm:text-base text-slate-500 max-w-2xl mx-auto">
+          Verronex is a Nigerian VTU platform for buying mobile data and airtime
+          at affordable prices — fund your wallet once and top up any MTN,
+          Airtel, Glo or 9mobile number in seconds.
         </p>
 
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">

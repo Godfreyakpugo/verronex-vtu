@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import supabase from "../../lib/supabaseClient";
+import SEO from "../../components/seo/SEO";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ export default function AuthCallback() {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
+      <SEO title="Verifying — Verronex VTU" robots="noindex, nofollow" canonical={null} />
       <p className="text-slate-600">Verifying your email...</p>
     </div>
   );

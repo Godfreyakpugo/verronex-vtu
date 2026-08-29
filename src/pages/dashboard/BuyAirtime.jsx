@@ -13,6 +13,7 @@ import GlassCard from "../../components/ui/GlassCard";
 import ConfirmModal from "../../components/ui/ConfirmModal";
 import Toast from "../../components/ui/Toast";
 import PurchaseSuccessModal from "../../components/ui/PurchaseSuccessModal";
+import SEO from "../../components/seo/SEO";
 
 const NETWORKS = [
   { value: "MTN", label: "MTN", short: "MTN", theme: "bg-yellow-400 text-slate-900" },
@@ -349,6 +350,7 @@ export default function BuyAirtime() {
 
   return (
     <div className="space-y-6">
+      <SEO title="Buy Airtime — Verronex VTU" robots="noindex, nofollow" canonical={null} />
       <header>
         <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-fuchsia-600 bg-clip-text text-transparent">
           Buy Airtime

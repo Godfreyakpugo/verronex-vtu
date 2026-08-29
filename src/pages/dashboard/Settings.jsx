@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import supabase from "../../lib/supabaseClient";
 import GlassCard from "../../components/ui/GlassCard";
+import SEO from "../../components/seo/SEO";
 
 function SettingsPage() {
   const { user, profile, refreshProfile } = useAuth();
@@ -118,6 +119,7 @@ function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.12),transparent_50%),linear-gradient(135deg,#eef2ff_0%,#f5f3ff_30%,#fdf4ff_60%,#ffffff_100%)] p-4 lg:p-6">
+      <SEO title="Settings — Verronex VTU" robots="noindex, nofollow" canonical={null} />
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="border-b border-fuchsia-100/80 pb-6 mb-6">

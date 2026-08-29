@@ -9,6 +9,7 @@ import TransactionDetailModal from "../../components/ui/TransactionDetailModal";
 import PublicAlertModal from "../../components/ui/PublicAlertModal";
 import { buildTransactionView } from "../../lib/transactionView";
 import { ROUTES } from "../../routes";
+import SEO from "../../components/seo/SEO";
 
 const quickActions = [
   {
@@ -108,6 +109,7 @@ function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <SEO title="Dashboard — Verronex VTU" robots="noindex, nofollow" canonical={null} />
       {/* Welcome */}
       <div>
         <h1 className="text-2xl font-black text-slate-900 tracking-tight">

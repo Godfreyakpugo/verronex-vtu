@@ -7,6 +7,7 @@ import {
 import supabase from "../../../lib/supabaseClient";
 import GlassCard from "../../../components/ui/GlassCard";
 import Toast from "../../../components/ui/Toast";
+import SEO from "../../../components/seo/SEO";
 
 const PERIOD_OPTIONS = [
   { key: "today", label: "Today" },
@@ -148,6 +149,7 @@ export default function AccountingPage() {
 
   return (
     <div className="space-y-6">
+      <SEO title="Accounting — Verronex VTU" robots="noindex, nofollow" canonical={null} />
       {/* Header */}
       <div className="p-7 rounded-3xl bg-linear-to-br from-indigo-900 via-purple-800 to-fuchsia-700 shadow-xl shadow-purple-900/20 relative overflow-hidden">
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-fuchsia-500 rounded-full mix-blend-screen filter blur-[80px] opacity-60 pointer-events-none" />

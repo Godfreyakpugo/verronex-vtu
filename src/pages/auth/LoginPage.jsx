@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import supabase from "../../lib/supabaseClient";
 import BrandLogo from "../../components/ui/BrandLogo";
 import Toast from "../../components/ui/Toast";
+import SEO from "../../components/seo/SEO";
 
 function GoogleIcon() {
   return (
@@ -138,6 +139,7 @@ function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.12),transparent_50%),linear-gradient(135deg,#eef2ff_0%,#f5f3ff_30%,#fdf4ff_60%,#ffffff_100%)] px-4 py-12">
+      <SEO title="Login — Verronex VTU" robots="noindex, nofollow" canonical={null} />
       <Toast
         type={toast?.type}
         title={toast?.title}

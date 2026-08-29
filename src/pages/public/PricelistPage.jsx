@@ -4,6 +4,8 @@ import { Wifi, Smartphone, Search, ArrowRight, Loader2 } from "lucide-react";
 import supabase from "../../lib/supabaseClient";
 import PublicNav from "../../components/layout/PublicNav";
 import { getNetworkStyle } from "../../lib/networkStyles";
+import SEO from "../../components/seo/SEO";
+import logoUrl from "../../assets/vtu-verronex-logo.png";
 
 const NETWORK_ORDER = ["MTN", "GLO", "AIRTEL", "9MOBILE"];
 
@@ -14,6 +16,11 @@ function naira(value) {
 
 // Primary public page: current data & airtime prices, no sign-in required.
 export default function PricelistPage() {
+  const pageTitle = "Verronex VTU Pricelist — Data & Airtime Prices in Nigeria";
+  const pageDescription =
+    "View Verronex VTU data and airtime prices for Nigerian networks — MTN, Airtel, Glo and 9mobile. Compare affordable bundles and face-value discounts before you buy.";
+  const canonicalUrl = "https://verronex.com/pricelist";
+  const absoluteImage = `https://verronex.com${logoUrl}`;
   const [pricelist, setPricelist] = useState({ plans: [], airtime: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -76,16 +83,31 @@ export default function PricelistPage() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.12),transparent_50%),linear-gradient(135deg,#eef2ff_0%,#f5f3ff_30%,#fdf4ff_60%,#ffffff_100%)]">
+      <SEO
+        title={pageTitle}
+        description={pageDescription}
+        canonical={canonicalUrl}
+        robots="index, follow"
+        ogTitle={pageTitle}
+        ogDescription={pageDescription}
+        ogUrl={canonicalUrl}
+        ogImage={absoluteImage}
+        twitterTitle={pageTitle}
+        twitterDescription={pageDescription}
+        twitterImage={absoluteImage}
+      />
       <PublicNav />
 
       <main className="max-w-3xl mx-auto px-4 py-8 sm:py-10 space-y-8">
         {/* Intro + primary CTA */}
         <section className="text-center">
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight bg-gradient-to-r from-indigo-600 to-fuchsia-600 bg-clip-text text-transparent">
-            Verronex Pricelist
+            Verronex VTU Pricelist — Data &amp; Airtime Prices in Nigeria
           </h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Affordable data and airtime — what you see is what you pay.
+          <p className="mt-3 text-sm text-slate-600 max-w-2xl mx-auto">
+            Verronex provides affordable data and airtime for Nigerian networks
+            including MTN, Airtel, Glo and 9mobile. Browse live prices below —
+            what you see is what you pay.
           </p>
           <Link
             to="/signup"

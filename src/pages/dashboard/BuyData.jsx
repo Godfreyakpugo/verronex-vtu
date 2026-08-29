@@ -18,6 +18,7 @@ import GlassCard from "../../components/ui/GlassCard";
 import ConfirmModal from "../../components/ui/ConfirmModal";
 import Toast from "../../components/ui/Toast";
 import PurchaseSuccessModal from "../../components/ui/PurchaseSuccessModal";
+import SEO from "../../components/seo/SEO";
 
 const NETWORK_THEME = {
   mtn: { badge: "bg-yellow-400 text-slate-900", initials: "MTN" },
@@ -470,6 +471,7 @@ export default function BuyData() {
 
   return (
     <div className="space-y-6 pb-24">
+      <SEO title="Buy Data — Verronex VTU" robots="noindex, nofollow" canonical={null} />
       <header>
         <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-fuchsia-600 bg-clip-text text-transparent">
           Buy Data

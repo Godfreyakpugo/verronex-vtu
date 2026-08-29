@@ -4,6 +4,7 @@ import { Mail, Lock, User, Phone, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import supabase from "../../lib/supabaseClient";
 import BrandLogo from "../../components/ui/BrandLogo";
+import SEO from "../../components/seo/SEO";
 
 function GoogleIcon() {
   return (
@@ -194,6 +195,7 @@ function SignupPage() {
   if (success) {
     return pageWrapper(
       <>
+        <SEO title="Create account — Verronex VTU" robots="noindex, nofollow" canonical={null} />
         <div className="bg-linear-to-br from-indigo-900 via-purple-800 to-fuchsia-700 px-8 py-10 relative overflow-hidden text-center">
           <div className="absolute -top-12 -right-12 w-48 h-48 bg-fuchsia-500 rounded-full filter blur-[70px] opacity-40 mix-blend-screen pointer-events-none" />
           <div className="relative z-10">
@@ -234,6 +236,7 @@ function SignupPage() {
   // ── Signup form ────────────────────────────────────────────
   return pageWrapper(
     <>
+      <SEO title="Sign Up — Verronex VTU" robots="noindex, nofollow" canonical={null} />
       {darkHeader("Create account", "Get started with Verronex VTU today")}
 
       <div className="px-8 pt-5 pb-6 space-y-2.5">

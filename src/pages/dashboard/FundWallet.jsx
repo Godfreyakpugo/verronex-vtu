@@ -15,6 +15,7 @@ import supabase from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 import GlassCard from "../../components/ui/GlassCard";
 import { formatNaira, smartDate } from "../../lib/transactionView";
+import SEO from "../../components/seo/SEO";
 
 const QUICK_AMOUNTS = [500, 1000, 2000, 5000, 10000];
 const MAX_AMOUNT = 5000000;
@@ -165,6 +166,7 @@ Thank you.`;
 
   return (
     <div className="max-w-3xl mx-auto space-y-4">
+      <SEO title="Fund Wallet — Verronex VTU" robots="noindex, nofollow" canonical={null} />
       {/* Hero — compact banner, not a quarter of the page */}
       <div className="rounded-2xl bg-[linear-gradient(135deg,#312e81,#7c3aed,#d946ef)] text-white px-5 py-4 shadow-lg">
         <div className="flex items-center gap-3">
