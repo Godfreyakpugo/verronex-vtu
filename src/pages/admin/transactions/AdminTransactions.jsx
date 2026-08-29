@@ -197,10 +197,6 @@ export default function AdminTransactions() {
       setActionError("Select a target status: successful or failed.");
       return;
     }
-    if (!statusReason.trim()) {
-      setActionError("Reason is required for status change.");
-      return;
-    }
 
     // Warning confirmation for financial actions
     const amountLabel = formatNaira(statusChangeRow.amount);
@@ -213,11 +209,12 @@ export default function AdminTransactions() {
       return;
     }
 
+    const trimmedReason = statusReason.trim();
     let confirmMsg;
     if (targetStatus === "failed") {
-      confirmMsg = `Changing this transaction to Failed will refund ${amountLabel} to the customer's wallet.\n\nCurrent: ${currentStatus}\nNew: failed\nAmount: ${amountLabel}\n\nThis refund will happen ONLY ONCE. A second change to failed will not refund again.\n\nReason: ${statusReason.trim()}\n\nConfirm?`;
+      confirmMsg = `Changing this transaction to Failed will refund ${amountLabel} to the customer's wallet.\n\nCurrent: ${currentStatus}\nNew: failed\nAmount: ${amountLabel}\n\nThis refund will happen ONLY ONCE. A second change to failed will not refund again.${trimmedReason ? `\n\nReason: ${trimmedReason}` : ""}\n\nConfirm?`;
     } else {
-      confirmMsg = `Changing this transaction to Successful will NOT debit the customer's wallet again.\n\nCurrent: ${currentStatus}\nNew: successful\nAmount: ${amountLabel}\n\nNo additional charge will be made. Status will be set to successful.\n\nReason: ${statusReason.trim()}\n\nConfirm?`;
+      confirmMsg = `Changing this transaction to Successful will NOT debit the customer's wallet again.\n\nCurrent: ${currentStatus}\nNew: successful\nAmount: ${amountLabel}\n\nNo additional charge will be made. Status will be set to successful.${trimmedReason ? `\n\nReason: ${trimmedReason}` : ""}\n\nConfirm?`;
     }
 
     if (!window.confirm(confirmMsg)) return;
@@ -230,7 +227,7 @@ export default function AdminTransactions() {
         {
           p_transaction_id: statusChangeRow.id,
           p_new_status: targetStatus,
-          p_reason: statusReason.trim(),
+          p_reason: trimmedReason || null,
         },
       );
 
@@ -578,17 +575,17 @@ export default function AdminTransactions() {
             </div>
 
             <div className="mb-4">
-              <label className="text-sm font-bold text-slate-700 block mb-2">Reason (required)</label>
+              <label className="text-sm font-bold text-slate-700 block mb-2">Reason <span className="font-normal text-slate-400">(optional)</span></label>
               <textarea
                 rows={3}
                 value={statusReason}
                 onChange={(e) => setStatusReason(e.target.value)}
                 placeholder={
                   targetStatus === "failed"
-                    ? "e.g. Provider confirmed failure, refund required"
+                    ? "e.g. Provider confirmed failure, refund required (optional)"
                     : targetStatus === "successful"
-                      ? "e.g. Provider confirmed delivery, mark successful"
-                      : "Enter reason for status change"
+                      ? "e.g. Provider confirmed delivery, mark successful (optional)"
+                      : "Enter reason for status change (optional)"
                 }
                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
               />
@@ -630,7 +627,7 @@ export default function AdminTransactions() {
               </button>
               <button
                 type="button"
-                disabled={statusChanging || !targetStatus || !statusReason.trim()}
+                disabled={statusChanging || !targetStatus}
                 onClick={performStatusChange}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
               >

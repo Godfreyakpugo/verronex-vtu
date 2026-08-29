@@ -59,10 +59,6 @@ begin
     raise exception 'Invalid target status: %. Allowed: successful, failed', p_new_status;
   end if;
 
-  if p_reason is null or trim(p_reason) = '' then
-    raise exception 'Reason is required for status change';
-  end if;
-
   -- 3. Lock transaction row
   select id, user_id, amount, status, category, type, reference, metadata
     into v_tx_id, v_user_id, v_amount, v_status, v_category, v_type, v_reference, v_metadata
