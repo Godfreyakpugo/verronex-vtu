@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+
+Disallow: /login
+Disallow: /signup
+Disallow: /auth/
+Disallow: /dashboard
+Disallow: /fund-wallet
+Disallow: /buy-data
+Disallow: /buy-airtime
+Disallow: /transactions
+Disallow: /settings
+Disallow: /admin/
+
+Sitemap: https://verronex.com/sitemap.xml
