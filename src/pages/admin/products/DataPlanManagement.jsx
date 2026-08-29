@@ -779,15 +779,6 @@ const confirmApplySync = async () => {
                       </div>
                     </div>
                   </div>
-                  <span className="shrink-0 whitespace-nowrap inline-block px-2 sm:px-2.5 py-1 rounded-full bg-fuchsia-50 text-fuchsia-600 text-[11px] sm:text-xs font-bold">
-                    ₦
-                    {formatMoney(
-                      groupPlans.reduce(
-                        (sum, p) => sum + (Number(p.selling_price) || 0),
-                        0,
-                      ),
-                    )}
-                  </span>
                 </button>
 
                 {!isCollapsed && (
