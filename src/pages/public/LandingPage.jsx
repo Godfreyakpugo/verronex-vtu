@@ -7,6 +7,9 @@ import {
   Loader2,
   ChevronDown,
   BadgePercent,
+  Phone,
+  Mail,
+  MapPin,
 } from "lucide-react";
 import supabase from "../../lib/supabaseClient";
 import BrandLogo from "../../components/ui/BrandLogo";
@@ -179,14 +182,17 @@ export default function LandingPage() {
       </section>
 
       {/* ── Pricing highlights ───────────────────────────────── */}
-      <section id="pricing" className="max-w-5xl mx-auto px-4 pb-16 scroll-mt-4">
+      <section
+        id="pricing"
+        className="max-w-5xl mx-auto px-4 pb-16 scroll-mt-4"
+      >
         <div className="text-center mb-8">
           <h2 className="text-2xl font-black tracking-tight text-slate-900">
             Prices that speak for themselves
           </h2>
           <p className="mt-2 text-sm text-slate-500 inline-flex items-center gap-1.5">
-            <BadgePercent className="w-4 h-4 text-fuchsia-600" />
-            A taste of what you pay on each network
+            <BadgePercent className="w-4 h-4 text-fuchsia-600" />A taste of what
+            you pay on each network
           </p>
         </div>
 
@@ -239,13 +245,36 @@ export default function LandingPage() {
         )}
       </section>
 
-      <footer className="pb-8 text-center text-xs text-slate-400 space-y-1">
-        <p>Holy Ghost Bus Terminal 1, Enugu ·{" "}
-          <a href="tel:09029073673" className="hover:text-slate-600 transition-colors">
-            0902 907 3673
-          </a>
-        </p>
-        <p>© {new Date().getFullYear()} Verronex VTU</p>
+      <footer className="pt-10 pb-8 text-center border-t border-slate-200/60 mt-4">
+        <div className="max-w-3xl mx-auto px-4 space-y-3">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-6 text-xs text-slate-500">
+            <span className="inline-flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-fuchsia-600 shrink-0" />
+              No. 4 Chris Eruchie Crescent, Phase 6 Extension, Trans Ekulu Enugu
+            </span>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-5 text-xs">
+            <a
+              href="tel:08140181282"
+              className="inline-flex items-center gap-1.5 font-semibold text-slate-600 hover:text-fuchsia-600 transition-colors"
+            >
+              <Phone className="w-3.5 h-3.5 text-fuchsia-600" />
+              0814 018 1282
+            </a>
+            <span className="hidden sm:block text-slate-300">·</span>
+            <a
+              href="mailto:godfreyakpugo@gmail.com"
+              className="inline-flex items-center gap-1.5 font-semibold text-slate-600 hover:text-fuchsia-600 transition-colors"
+            >
+              <Mail className="w-3.5 h-3.5 text-fuchsia-600" />
+              godfreyakpugo@gmail.com
+            </a>
+          </div>
+          <p className="text-xs text-slate-400">
+            © {new Date().getFullYear()} Verronex VTU. Verronex LOOM. All rights
+            reserved.
+          </p>
+        </div>
       </footer>
     </div>
   );
