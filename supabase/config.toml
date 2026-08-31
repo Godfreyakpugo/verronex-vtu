@@ -438,3 +438,8 @@ entrypoint = "./functions/purchase-airtime/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/delete-user/index.ts"
+
+[functions.init-monnify-funding]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/init-monnify-funding/index.ts"
