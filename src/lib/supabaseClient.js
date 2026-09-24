@@ -53,6 +53,15 @@ const createNoopSupabaseClient = () => ({
   },
   from: noopFrom,
   rpc: async () => ({ data: null, error: null }),
+  channel: () => ({
+    on: () => ({
+      subscribe: () => ({
+        unsubscribe: () => {},
+      }),
+    }),
+    unsubscribe: () => {},
+  }),
+  removeChannel: () => {},
   functions: {
     invoke: async () => ({
       data: null,

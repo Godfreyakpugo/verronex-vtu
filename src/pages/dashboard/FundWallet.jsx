@@ -85,10 +85,46 @@ export default function FundWallet() {
   };
 
   useEffect(() => {
+    if (!user?.id) return;
     fetchRecentRequests();
     refreshWallet();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    if (typeof supabase.channel !== "function") return;
+
+    const channel = supabase
+      .channel(`funding-requests-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "funding_requests",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchRecentRequests();
+          refreshWallet();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      try {
+        if (typeof supabase.removeChannel === "function") {
+          supabase.removeChannel(channel);
+        } else if (typeof channel.unsubscribe === "function") {
+          channel.unsubscribe();
+        }
+      } catch {
+        // cleanup best-effort
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   async function copyAccount() {
     try {
