@@ -148,6 +148,23 @@ export default function RefundPolicy() {
             </p>
           </Section>
 
+          <Section title="6. Wallet Funds Cannot Be Withdrawn or Transferred">
+            <p>
+              Any money sent to a Verronex wallet — whether by bank transfer,
+              Monnify payment, manual funding, or administrative credit —
+              cannot be withdrawn to a bank account, mobile-money account, or
+              any other external destination, and cannot be transferred to
+              another Verronex user or wallet.
+            </p>
+            <p>
+              Wallet balances can only be used to purchase Verronex services
+              such as airtime, data bundles, and other digital products offered
+              on the platform. By funding a wallet, you agree that the funds
+              are committed to in-platform spending, except where a withdrawal
+              is expressly required by law.
+            </p>
+          </Section>
+
           <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-slate-200 pt-6 text-sm text-slate-500 sm:flex-row">
             <Link
               to="/"
