@@ -9,6 +9,9 @@ export const ROUTES = {
   FUND_WALLET: "/fund-wallet",
   TRANSACTIONS: "/transactions",
   SETTINGS: "/settings",
+  TERMS_OF_SERVICE: "/terms-of-service",
+  PRIVACY_POLICY: "/privacy-policy",
+  REFUND_POLICY: "/refund-policy",
   ADMIN: "/admin",
 };
 

@@ -12,6 +12,9 @@ import Transactions from "./pages/dashboard/Transactions";
 import SettingsPage from "./pages/dashboard/Settings";
 import LandingPage from "./pages/public/LandingPage";
 import PricelistPage from "./pages/public/PricelistPage";
+import TermsOfService from "./pages/legal/TermsOfService";
+import PrivacyPolicy from "./pages/legal/PrivacyPolicy";
+import RefundPolicy from "./pages/legal/RefundPolicy";
 import FloatingMessageButton from "./components/ui/FloatingMessageButton";
 import "./index.css";
 
@@ -58,6 +61,9 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/terms-of-service" element={<TermsOfService />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/refund-policy" element={<RefundPolicy />} />
 
         <Route
           path="/dashboard"
