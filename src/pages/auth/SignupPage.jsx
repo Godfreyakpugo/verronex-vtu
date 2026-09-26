@@ -325,7 +325,7 @@ function SignupPage() {
             className="mt-0.5 w-4 h-4 shrink-0 accent-fuchsia-600 cursor-pointer"
           />
           <span className="text-[11px] leading-5 text-slate-600">
-            I confirm I am at least 18 years old and I accept the{" "}
+            I confirm that I have read the{" "}
             <Link
               to="/terms-of-service"
               target="_blank"
@@ -358,8 +358,8 @@ function SignupPage() {
 
         <button
           onClick={handleSignUp}
-          disabled={busy}
-          className="w-full flex items-center justify-center gap-2 bg-linear-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-700 hover:to-purple-700 active:scale-95 text-white text-sm font-bold py-3 rounded-xl shadow-lg shadow-fuchsia-500/30 transition-all disabled:opacity-50 mt-1"
+          disabled={busy || !acceptedTerms}
+          className="w-full flex items-center justify-center gap-2 bg-linear-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-700 hover:to-purple-700 active:scale-95 text-white text-sm font-bold py-3 rounded-xl shadow-lg shadow-fuchsia-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-1"
         >
           {busy ? (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
