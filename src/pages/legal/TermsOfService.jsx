@@ -50,6 +50,12 @@ export default function TermsOfService() {
               agree to be bound by these Terms.
             </p>
             <p>
+              You must be at least 18 years old and legally capable of entering
+              into binding contracts under Nigerian law to use Verronex. By
+              creating an account, you confirm that you meet this eligibility
+              requirement.
+            </p>
+            <p>
               Verronex provides an intermediary platform for purchasing digital
               services and wallet-based transactions. We are not a telecom
               operator, electricity provider, financial institution, or payment
@@ -85,7 +91,9 @@ export default function TermsOfService() {
               Verronex acts as an intermediary between users and third-party
               service providers such as telecom operators (including MTN,
               Airtel, Glo, 9mobile, and others), electricity distribution
-              companies (“DisCos”), and other digital service providers.
+              companies (“DisCos”), and other digital service providers — in
+              each case, only where such services are offered on the platform
+              from time to time.
             </p>
             <p>
               We do not control, own, or operate the underlying networks or
@@ -110,8 +118,9 @@ export default function TermsOfService() {
             <p>
               You are fully responsible for ensuring that all information
               provided to Verronex is accurate before submitting a transaction.
-              This includes phone numbers, meter numbers, smartcard numbers,
-              account identifiers, and all other details required for service
+              This includes phone numbers, meter numbers or smartcard numbers
+              (where electricity or TV services are offered), account
+              identifiers, and all other details required for service
               fulfillment.
             </p>
             <p>
@@ -196,9 +205,26 @@ export default function TermsOfService() {
           <Section title="8. Contact and Support">
             <p>
               If you have questions about these Terms, please contact Verronex
-              support through the official channels available on our platform or
-              by the contact information displayed in our public help and
-              support materials.
+              support through the in-app “Message Us” option, by email at
+              godfreyakpugo@gmail.com, by phone or WhatsApp at 0814 018 1282,
+              or at No. 4 Chris Eruchie Crescent, Phase 6 Extension, Trans
+              Ekulu, Enugu, Nigeria.
+            </p>
+          </Section>
+
+          <Section title="9. Governing Law and Dispute Resolution">
+            <p>
+              These Terms are governed by the laws of the Federal Republic of
+              Nigeria. Where a dispute arises in connection with your use of
+              Verronex, both parties shall first attempt to resolve it amicably
+              through our support channels within 30 days of the dispute being
+              reported.
+            </p>
+            <p>
+              If the dispute is not resolved amicably, it shall be subject to
+              the exclusive jurisdiction of the courts of Lagos State, Nigeria,
+              except where applicable law grants you the right to seek redress
+              before another competent court or tribunal.
             </p>
           </Section>
 

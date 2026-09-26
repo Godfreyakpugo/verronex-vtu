@@ -37,6 +37,9 @@ export default function PrivacyPolicy() {
               Privacy Policy
             </h1>
             <p className="mt-3 text-sm text-slate-500 sm:text-base">
+              Effective date: 26 September 2026
+            </p>
+            <p className="mt-1 text-sm text-slate-500 sm:text-base">
               This policy explains how we collect, use, protect, and share
               personal data in connection with our VTU and wallet services.
             </p>
@@ -80,7 +83,10 @@ export default function PrivacyPolicy() {
             <p>We use the information we collect to:</p>
             <ul className="list-disc space-y-2 pl-6">
               <li>Provide VTU and wallet services to users.</li>
-              <li>Process airtime, data, and utility purchases.</li>
+              <li>
+                Process airtime, data, and utility purchases (where such
+                services are offered).
+              </li>
               <li>Maintain wallet balance and transaction ledgers.</li>
               <li>
                 Prevent fraud, abuse, unauthorized access, and suspicious
@@ -185,8 +191,11 @@ export default function PrivacyPolicy() {
             </p>
             <p>
               To exercise those rights or ask questions about your data, please
-              use the official support or contact channels available on the
-              Verronex platform.
+              contact us through the in-app “Message Us” option, by email at
+              godfreyakpugo@gmail.com, or by phone or WhatsApp at 0814 018
+              1282. You also have the right to lodge a complaint with the
+              Nigeria Data Protection Commission (NDPC) if you believe your
+              data has been mishandled.
             </p>
           </Section>
 

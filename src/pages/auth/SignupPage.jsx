@@ -89,10 +89,17 @@ function SignupPage() {
   const [busy, setBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const handleGoogleSignIn = async () => {
     if (googleBusy) return;
     setError(null);
+    if (!acceptedTerms) {
+      setError(
+        "Please accept the Terms of Service, Privacy Policy, and Refund Policy to continue.",
+      );
+      return;
+    }
     setGoogleBusy(true);
 
     try {
@@ -113,6 +120,12 @@ function SignupPage() {
 
   const handleSignUp = async () => {
     setError(null);
+    if (!acceptedTerms) {
+      setError(
+        "Please accept the Terms of Service, Privacy Policy, and Refund Policy to continue.",
+      );
+      return;
+    }
     if (
       !fullName ||
       !username ||
@@ -195,7 +208,11 @@ function SignupPage() {
   if (success) {
     return pageWrapper(
       <>
-        <SEO title="Create account — Verronex VTU" robots="noindex, nofollow" canonical={null} />
+        <SEO
+          title="Create account — Verronex VTU"
+          robots="noindex, nofollow"
+          canonical={null}
+        />
         <div className="bg-linear-to-br from-indigo-900 via-purple-800 to-fuchsia-700 px-8 py-10 relative overflow-hidden text-center">
           <div className="absolute -top-12 -right-12 w-48 h-48 bg-fuchsia-500 rounded-full filter blur-[70px] opacity-40 mix-blend-screen pointer-events-none" />
           <div className="relative z-10">
@@ -236,7 +253,11 @@ function SignupPage() {
   // ── Signup form ────────────────────────────────────────────
   return pageWrapper(
     <>
-      <SEO title="Sign Up — Verronex VTU" robots="noindex, nofollow" canonical={null} />
+      <SEO
+        title="Sign Up — Verronex VTU"
+        robots="noindex, nofollow"
+        canonical={null}
+      />
       {darkHeader("Create account", "Get started with Verronex VTU today")}
 
       <div className="px-8 pt-5 pb-6 space-y-2.5">
@@ -296,6 +317,45 @@ function SignupPage() {
           </div>
         )}
 
+        <label className="flex items-start gap-2.5 rounded-xl border border-fuchsia-100 bg-fuchsia-50/50 px-3.5 py-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={acceptedTerms}
+            onChange={(e) => setAcceptedTerms(e.target.checked)}
+            className="mt-0.5 w-4 h-4 shrink-0 accent-fuchsia-600 cursor-pointer"
+          />
+          <span className="text-[11px] leading-5 text-slate-600">
+            I confirm I am at least 18 years old and I accept the{" "}
+            <Link
+              to="/terms-of-service"
+              target="_blank"
+              rel="noreferrer"
+              className="text-fuchsia-600 font-bold hover:text-fuchsia-800 transition-colors"
+            >
+              Terms of Service
+            </Link>
+            ,{" "}
+            <Link
+              to="/privacy-policy"
+              target="_blank"
+              rel="noreferrer"
+              className="text-fuchsia-600 font-bold hover:text-fuchsia-800 transition-colors"
+            >
+              Privacy Policy
+            </Link>{" "}
+            and{" "}
+            <Link
+              to="/refund-policy"
+              target="_blank"
+              rel="noreferrer"
+              className="text-fuchsia-600 font-bold hover:text-fuchsia-800 transition-colors"
+            >
+              Refund Policy
+            </Link>
+            .
+          </span>
+        </label>
+
         <button
           onClick={handleSignUp}
           disabled={busy}
@@ -339,6 +399,31 @@ function SignupPage() {
             Sign in
           </Link>
         </p>
+
+        <div className="pt-2 text-center">
+          <div className="inline-flex flex-wrap items-center justify-center gap-2 text-[11px] text-slate-500">
+            <Link
+              to="/terms-of-service"
+              className="hover:text-fuchsia-600 transition-colors"
+            >
+              Terms
+            </Link>
+            <span className="text-slate-300">•</span>
+            <Link
+              to="/privacy-policy"
+              className="hover:text-fuchsia-600 transition-colors"
+            >
+              Privacy
+            </Link>
+            <span className="text-slate-300">•</span>
+            <Link
+              to="/refund-policy"
+              className="hover:text-fuchsia-600 transition-colors"
+            >
+              Refunds
+            </Link>
+          </div>
+        </div>
       </div>
     </>,
   );

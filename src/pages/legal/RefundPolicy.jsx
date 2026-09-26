@@ -37,6 +37,9 @@ export default function RefundPolicy() {
               Refund Policy
             </h1>
             <p className="mt-3 text-sm text-slate-500 sm:text-base">
+              Effective date: 26 September 2026
+            </p>
+            <p className="mt-1 text-sm text-slate-500 sm:text-base">
               Strictly digital goods and wallet-based transactions
             </p>
           </header>
@@ -137,6 +140,11 @@ export default function RefundPolicy() {
             <p>
               Unless otherwise required by law, this policy is the governing
               rule for refunds related to digital transactions on the platform.
+            </p>
+            <p>
+              To raise a dispute, contact support promptly through the in-app
+              “Message Us” option, by email at godfreyakpugo@gmail.com, or by
+              phone or WhatsApp at 0814 018 1282.
             </p>
           </Section>
 
