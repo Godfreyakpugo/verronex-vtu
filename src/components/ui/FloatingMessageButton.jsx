@@ -12,6 +12,11 @@ import { MessageCircle, X, ExternalLink } from "lucide-react";
 export default function FloatingMessageButton() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  // Signup-only mini mode: the pill shrinks to a small circular nub so it
+  // never covers form fields; tapping the nub restores the full button.
+  const [expanded, setExpanded] = useState(false);
+  const isSignup = location.pathname === "/signup";
+  const minimized = isSignup && !expanded;
   const containerRef = useRef(null);
   const triggerRef = useRef(null);
   const panelRef = useRef(null);
@@ -59,10 +64,11 @@ export default function FloatingMessageButton() {
     return () => clearTimeout(id);
   }, [open]);
 
-  // Close popup when navigating (esp. to hidden pages)
+  // Close popup (and collapse the signup mini mode) when navigating
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setOpen(false);
+    setExpanded(false);
   }, [location.pathname]);
 
   // Hide on buy-data and buy-airtime pages per requirement
@@ -139,11 +145,27 @@ export default function FloatingMessageButton() {
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label={open ? "Close contact menu" : "Open contact menu — Message Us"}
+        onClick={() => {
+          if (minimized) {
+            setExpanded(true);
+            return;
+          }
+          setOpen((v) => !v);
+        }}
+        aria-label={
+          minimized
+            ? "Show contact button"
+            : open
+              ? "Close contact menu"
+              : "Open contact menu — Message Us"
+        }
         aria-expanded={open}
         aria-haspopup="dialog"
-        className="pointer-events-auto group relative inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 px-4 py-2 text-sm font-semibold text-white shadow-lg hover:shadow-fuchsia-500/30 hover:scale-[1.03] active:scale-95 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+        className={`pointer-events-auto group relative inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-sm font-semibold text-white shadow-lg hover:shadow-fuchsia-500/30 hover:scale-[1.03] active:scale-95 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
+          minimized
+            ? "w-10 h-10 justify-center !px-0 animate-[fab-mini-in_0.25s_ease-out]"
+            : "px-4 py-2"
+        }`}
       >
         {/* Subtle online dot — emerald, matching app's verified/online cues */}
         <span className="relative flex items-center justify-center shrink-0">
@@ -157,15 +179,21 @@ export default function FloatingMessageButton() {
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400 border-2 border-white shadow-sm" />
           </span>
         </span>
-        <span className="tracking-tight">
-          {open ? "Close" : "Message Us"}
-        </span>
+        {!minimized && (
+          <span className="tracking-tight">
+            {open ? "Close" : "Message Us"}
+          </span>
+        )}
       </button>
 
       <style>{`
         @keyframes fab-in {
           from { opacity: 0; transform: translateY(8px) scale(0.97); }
           to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes fab-mini-in {
+          from { opacity: 0; transform: scale(1.6); }
+          to   { opacity: 1; transform: scale(1); }
         }
       `}</style>
     </div>
