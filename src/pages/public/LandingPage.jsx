@@ -270,6 +270,28 @@ export default function LandingPage() {
               godfreyakpugo@gmail.com
             </a>
           </div>
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-xs text-slate-500">
+            <Link
+              to="/terms-of-service"
+              className="font-semibold underline-offset-4 hover:text-fuchsia-600 hover:underline transition-colors"
+            >
+              Terms of Service
+            </Link>
+            <span className="text-slate-300">•</span>
+            <Link
+              to="/privacy-policy"
+              className="font-semibold underline-offset-4 hover:text-fuchsia-600 hover:underline transition-colors"
+            >
+              Privacy Policy
+            </Link>
+            <span className="text-slate-300">•</span>
+            <Link
+              to="/refund-policy"
+              className="font-semibold underline-offset-4 hover:text-fuchsia-600 hover:underline transition-colors"
+            >
+              Refund Policy
+            </Link>
+          </div>
           <p className="text-xs text-slate-400">
             © {new Date().getFullYear()} Verronex VTU. Verronex LOOM. All rights
             reserved.
