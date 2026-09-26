@@ -12,11 +12,11 @@ import { MessageCircle, X, ExternalLink } from "lucide-react";
 export default function FloatingMessageButton() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
-  // Signup-only mini mode: the pill shrinks to a small circular nub so it
-  // never covers form fields; tapping the nub restores the full button.
+  // General mini mode (every visible page): the pill starts as a small
+  // circular nub so it never covers content; tapping expands it, and it
+  // shrinks back automatically after 3s without interaction.
   const [expanded, setExpanded] = useState(false);
-  const isSignup = location.pathname === "/signup";
-  const minimized = isSignup && !expanded;
+  const minimized = !expanded;
   const containerRef = useRef(null);
   const triggerRef = useRef(null);
   const panelRef = useRef(null);
@@ -64,12 +64,20 @@ export default function FloatingMessageButton() {
     return () => clearTimeout(id);
   }, [open]);
 
-  // Close popup (and collapse the signup mini mode) when navigating
+  // Close popup (and collapse to the nub) when navigating
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setOpen(false);
     setExpanded(false);
   }, [location.pathname]);
+
+  // Auto-shrink after 3s without interaction. An open popup counts as
+  // interaction, so the timer only runs while expanded and popup-free.
+  useEffect(() => {
+    if (!expanded || open) return;
+    const id = setTimeout(() => setExpanded(false), 3000);
+    return () => clearTimeout(id);
+  }, [expanded, open]);
 
   // Hide on buy-data and buy-airtime pages per requirement
   if (
@@ -163,7 +171,7 @@ export default function FloatingMessageButton() {
         aria-haspopup="dialog"
         className={`pointer-events-auto group relative inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-sm font-semibold text-white shadow-lg hover:shadow-fuchsia-500/30 hover:scale-[1.03] active:scale-95 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
           minimized
-            ? "w-10 h-10 justify-center !px-0 animate-[fab-mini-in_0.25s_ease-out]"
+            ? "w-8 h-8 justify-center !px-0 animate-[fab-mini-in_0.25s_ease-out]"
             : "px-4 py-2"
         }`}
       >
