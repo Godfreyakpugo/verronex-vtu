@@ -9,6 +9,28 @@ import ConfirmModal from "../../../components/ui/ConfirmModal";
 import WalletAdjustment from "./WalletAdjustment";
 import SEO from "../../../components/seo/SEO";
 
+const generateWalletAdjustmentReference = () => {
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi?.getRandomValues) {
+    throw new Error(
+      "Secure reference generation is unavailable. Please reload and try again.",
+    );
+  }
+
+  const bytes = new Uint8Array(16);
+  cryptoApi.getRandomValues(bytes);
+
+  const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+  const suffix = Array.from(
+    bytes,
+    (byte) => byte.toString(16).padStart(2, "0"),
+  )
+    .join("")
+    .toUpperCase();
+
+  return `FUND-${date}-${suffix}`;
+};
+
 function WalletManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -23,6 +45,7 @@ function WalletManagement() {
 
   const [searchError, setSearchError] = useState(null);
   const [creditSuccess, setCreditSuccess] = useState(null);
+  const [creditError, setCreditError] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingCredit, setPendingCredit] = useState(null);
 
@@ -85,6 +108,9 @@ function WalletManagement() {
       setTargetUser(null);
       setTargetWallet(null);
       setCreditSuccess(null);
+      setCreditError(null);
+      setPendingCredit(null);
+      setConfirmOpen(false);
     }
 
     clearSearchState();
@@ -171,9 +197,12 @@ function WalletManagement() {
     setSearchTerm(user.username || user.full_name || user.email);
     setShowResults(false);
     setSearchResults([]);
+    setPendingCredit(null);
+    setConfirmOpen(false);
 
     setSearchError(null);
     setCreditSuccess(null);
+    setCreditError(null);
     setWalletLoading(true);
 
     try {
@@ -200,11 +229,14 @@ function WalletManagement() {
 
     setConfirmOpen(false);
     setCrediting(true);
+    setCreditError(null);
+    setCreditSuccess(null);
 
     try {
       const isCredit = pendingCredit.mode === "credit";
       const rpc = isCredit ? "admin_credit_wallet" : "admin_debit_wallet";
       const amountKey = isCredit ? "credit_amount" : "debit_amount";
+      const paymentReference = pendingCredit.reference;
       const description =
         pendingCredit.reason?.trim() ||
         `Manual wallet ${pendingCredit.mode} by admin`;
@@ -212,7 +244,7 @@ function WalletManagement() {
       const { data: creditResult, error } = await supabase.rpc(rpc, {
         target_user_id: targetUser.id,
         [amountKey]: pendingCredit.amount,
-        payment_reference: pendingCredit.reference || null,
+        payment_reference: paymentReference,
         payment_description: description,
       });
 
@@ -240,7 +272,7 @@ function WalletManagement() {
           mode: pendingCredit.mode,
           amount: pendingCredit.amount,
           newBalance: resolvedBalance,
-          reference: creditResult?.transaction_reference || null,
+          reference: creditResult?.transaction_reference || paymentReference,
         });
       } else {
         const { data: updatedWallet, error: walletError } = await supabase
@@ -257,7 +289,7 @@ function WalletManagement() {
           mode: pendingCredit.mode,
           amount: pendingCredit.amount,
           newBalance: updatedWallet.balance,
-          reference: creditResult?.transaction_reference || null,
+          reference: creditResult?.transaction_reference || paymentReference,
         });
       }
 
@@ -271,6 +303,9 @@ function WalletManagement() {
       }, 1500);
     } catch (err) {
       console.error("Adjustment failed:", err);
+      setCreditError(
+        err?.message || "Wallet adjustment failed. Please try again.",
+      );
     } finally {
       setCrediting(false);
     }
@@ -282,10 +317,36 @@ function WalletManagement() {
 
     if (!amount || amount <= 0) return;
 
+    const trimmedReference = reference.trim();
+    const canReusePendingReference =
+      !trimmedReference &&
+      pendingCredit?.targetUserId === targetUser.id &&
+      pendingCredit.mode === mode &&
+      pendingCredit.amount === amount &&
+      pendingCredit.reason === reason.trim();
+
+    let paymentReference = trimmedReference;
+    try {
+      if (!paymentReference) {
+        paymentReference = canReusePendingReference
+          ? pendingCredit.reference
+          : generateWalletAdjustmentReference();
+      }
+    } catch (err) {
+      setCreditError(
+        err?.message ||
+          "Could not generate a payment reference. Please try again.",
+      );
+      return;
+    }
+
+    setCreditError(null);
+    setCreditSuccess(null);
     setPendingCredit({
+      targetUserId: targetUser.id,
       mode,
       amount,
-      reference: reference.trim(),
+      reference: paymentReference,
       reason: reason.trim(),
     });
     setConfirmOpen(true);
@@ -365,6 +426,15 @@ function WalletManagement() {
             ? ` Transaction reference: ${creditSuccess.reference}.`
             : ""}{" "}
           New balance: ₦{formatMoney(creditSuccess.newBalance)}.
+        </div>
+      )}
+
+      {creditError && (
+        <div
+          role="alert"
+          className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
+        >
+          Wallet adjustment failed: {creditError}
         </div>
       )}
 
