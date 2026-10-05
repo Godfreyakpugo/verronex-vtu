@@ -66,11 +66,18 @@ export default function FundWallet() {
     parsedAmount <= MAX_AMOUNT;
 
   const fetchRecentRequests = async () => {
-    if (!user) return;
+    if (!user?.id) {
+      setRequestsLoading(false);
+      return;
+    }
     try {
+      // Scoped to the signed-in user. RLS is the real boundary here (see
+      // supabase/sql/funding_requests_rls_audit.sql); this filter keeps the
+      // UI from ever rendering another customer's rows.
       const { data, error: err } = await supabase
         .from("funding_requests")
         .select("id, amount, reference, payment_reference, transaction_reference, status, rejection_reason, created_at")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(10);
 
@@ -137,7 +144,20 @@ export default function FundWallet() {
   }
 
   async function handleFundingRequest() {
-    if (!user || !profile) return;
+    // The guard is kept (a funding request needs a profile to build the
+    // notification), but it now reports back instead of silently returning.
+    if (!user) {
+      setError(
+        "You need to be signed in to submit a funding request. Please sign in and try again.",
+      );
+      return;
+    }
+    if (!profile) {
+      setError(
+        "Your profile is still loading, so we cannot submit this request yet. Please wait a moment and try again — if it persists, refresh the page.",
+      );
+      return;
+    }
     if (!amountValid) {
       setError("Enter a valid whole Naira amount above zero.");
       return;
@@ -211,7 +231,18 @@ Thank you.`;
   }
 
   async function handleMonnifyFunding() {
-    if (!user || !profile) return;
+    if (!user) {
+      setMonnifyError(
+        "You need to be signed in to generate a payment account. Please sign in and try again.",
+      );
+      return;
+    }
+    if (!profile) {
+      setMonnifyError(
+        "Your profile is still loading, so a payment account cannot be created yet. Please wait a moment and try again — if it persists, refresh the page.",
+      );
+      return;
+    }
     if (!amountValid) {
       setMonnifyError("Enter a valid whole Naira amount above zero.");
       return;

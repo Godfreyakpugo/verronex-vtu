@@ -20,8 +20,36 @@ export function AuthProvider({ children }) {
   const [wallet, setWallet] = useState(null); // row from `wallets` table
   const [loading, setLoading] = useState(true); // true until first auth check completes
 
+  // Id of the user whose profile/wallet are currently loaded. `null` means no
+  // identity is hydrated, so no personal data is exposed. Combined with the
+  // auth session this is what decides whether the app is ready to render —
+  // see `ready` below.
+  const [hydratedUserId, setHydratedUserId] = useState(null);
+
   // Single-flight guard: only one hydration may run per user transition.
+  // Stores whether the in-flight attempt is a new sign-in, because only a new
+  // sign-in is allowed the bounded profile retry.
   const hydrationInFlightRef = useRef(null);
+
+  // Mirrors `hydratedUserId` so the auth event listener can synchronously tell
+  // whether an incoming identity is the one already loaded.
+  const hydratedUserIdRef = useRef(null);
+
+  // When the authenticated user changes, drop the previous identity's profile
+  // and wallet immediately and put the app back into its not-ready state.
+  // Without this, a sign-out/sign-in transition rendered children immediately
+  // with `profile === null`, which bounced admins out of /admin/* (App.jsx
+  // AdminRoute) and briefly showed a false zero wallet balance.
+  const prepareForIdentity = useCallback((nextUserId) => {
+    const next = nextUserId ?? null;
+    if (hydratedUserIdRef.current === next) return;
+
+    hydratedUserIdRef.current = null;
+    setHydratedUserId(null);
+    setProfile(null);
+    setWallet(null);
+    setLoading(true);
+  }, []);
 
   // ── Fetch helpers ────────────────────────────────────────────────────────────
   const fetchProfile = useCallback(async (userId) => {
@@ -85,6 +113,8 @@ export function AuthProvider({ children }) {
             signOutError?.message,
           );
         }
+        hydratedUserIdRef.current = null;
+        setHydratedUserId(null);
         setUser(null);
         setSession(null);
         setProfile(null);
@@ -93,6 +123,12 @@ export function AuthProvider({ children }) {
       }
 
       const walletData = await fetchWallet(userId);
+      // Hydration has settled for this identity. This is recorded even when
+      // the profile read came back empty (e.g. a transient PostgREST error):
+      // that is a settled "not an admin / no profile" state the routes
+      // already handle, and it must not strand the app on a loader.
+      hydratedUserIdRef.current = userId;
+      setHydratedUserId(userId);
       setProfile(profileData);
       setWallet(walletData);
       return profileData;
@@ -100,27 +136,49 @@ export function AuthProvider({ children }) {
     [fetchProfile, fetchWallet],
   );
 
-  // Single-flight hydration: concurrent triggers for the same user (startup
-  // getSession + INITIAL_SESSION/SIGNED_IN event) share one running promise
-  // instead of racing duplicates. The new-signup retry loop inside
-  // hydrateUserData is untouched and still completes within that promise.
-  const runHydration = useCallback(
-    async (userId, isNewSignIn = false) => {
-      const inFlight = hydrationInFlightRef.current;
-      if (inFlight && inFlight.userId === userId) {
-        return inFlight.promise;
-      }
-
+  // Starts a hydration pass and records it as the in-flight one. Kept separate
+  // from `runHydration` so that function can re-invoke it without referencing
+  // its own const binding.
+  const startHydration = useCallback(
+    (userId, isNewSignIn) => {
       const promise = hydrateUserData(userId, isNewSignIn).finally(() => {
         if (hydrationInFlightRef.current?.promise === promise) {
           hydrationInFlightRef.current = null;
         }
       });
 
-      hydrationInFlightRef.current = { userId, promise };
+      hydrationInFlightRef.current = { userId, isNewSignIn, promise };
       return promise;
     },
     [hydrateUserData],
+  );
+
+  // Single-flight hydration: concurrent triggers for the same user (startup
+  // getSession + INITIAL_SESSION/SIGNED_IN event) share one running promise
+  // instead of racing duplicates.
+  //
+  // The one exception is a new sign-in arriving while an *ordinary* hydration
+  // for the same user is already running. Previously that new sign-in simply
+  // joined the ordinary attempt and its bounded profile retry was lost, so a
+  // freshly created `profiles` row could never be picked up and the user was
+  // left with `profile === null` until a full page reload. In that case we
+  // join the in-flight attempt and then run one more hydration *with* the
+  // retry enabled. The retry is bounded (10 attempts) and the second pass
+  // only starts after the first has settled, so this cannot loop.
+  const runHydration = useCallback(
+    async (userId, isNewSignIn = false) => {
+      const inFlight = hydrationInFlightRef.current;
+
+      if (inFlight && inFlight.userId === userId) {
+        if (!isNewSignIn || inFlight.isNewSignIn) {
+          return inFlight.promise;
+        }
+        return inFlight.promise.then(() => startHydration(userId, true));
+      }
+
+      return startHydration(userId, isNewSignIn);
+    },
+    [startHydration],
   );
 
   // ── Core: Initialize + listen to auth state ──────────────────────────────────
@@ -136,6 +194,7 @@ export function AuthProvider({ children }) {
       .then(async ({ data: { session } }) => {
         if (!mounted) return;
 
+        prepareForIdentity(session?.user?.id ?? null);
         setSession(session);
         setUser(session?.user ?? null);
 
@@ -159,6 +218,8 @@ export function AuthProvider({ children }) {
           sessionError?.message,
         );
         if (!mounted) return;
+        hydratedUserIdRef.current = null;
+        setHydratedUserId(null);
         setUser(null);
         setSession(null);
         setProfile(null);
@@ -175,6 +236,7 @@ export function AuthProvider({ children }) {
       if (!mounted) return;
 
       try {
+        prepareForIdentity(session?.user?.id ?? null);
         setSession(session);
         setUser(session?.user ?? null);
 
@@ -203,7 +265,7 @@ export function AuthProvider({ children }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [runHydration]);
+  }, [runHydration, prepareForIdentity]);
 
   // ─── 3. Auth Actions ─────────────────────────────────────────────────────────
 
@@ -314,13 +376,23 @@ export function AuthProvider({ children }) {
   }, [user, fetchProfile]);
 
   // ─── 5. Context Value ─────────────────────────────────────────────────────────
+
+  // Ready only when the auth check has settled AND the data currently in
+  // context belongs to the currently signed-in user. Previously `loading` was
+  // a one-way latch that never returned to true, so route guards rendered
+  // children mid-transition with `profile === null`. Exposed as `loading`
+  // because that is what App.jsx already renders a full-screen loader for.
+  const ready = user
+    ? !loading && user.id === hydratedUserId
+    : !loading && hydratedUserId === null;
+
   const value = {
     // State
     user,
     session,
     profile,
     wallet,
-    loading,
+    loading: !ready,
     // Auth actions
     signUp,
     signIn,

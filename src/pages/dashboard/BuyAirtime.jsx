@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Loader2,
   Smartphone,
@@ -14,6 +14,11 @@ import ConfirmModal from "../../components/ui/ConfirmModal";
 import Toast from "../../components/ui/Toast";
 import PurchaseSuccessModal from "../../components/ui/PurchaseSuccessModal";
 import SEO from "../../components/seo/SEO";
+import {
+  isValidNigerianPhone,
+  normalizeNigerianPhone,
+  normalizeNigerianPhoneOnComplete,
+} from "../../lib/nigerianPhone";
 
 const NETWORKS = [
   { value: "MTN", label: "MTN", short: "MTN", theme: "bg-yellow-400 text-slate-900" },
@@ -31,15 +36,6 @@ function formatNaira(amount) {
   return `₦${value.toLocaleString("en-NG")}`;
 }
 
-function normalizeNigerianPhone(raw) {
-  const digits = (raw || "").replace(/\D/g, "");
-  return digits.startsWith("234") ? "0" + digits.slice(3) : digits;
-}
-
-function isValidNigerianPhone(raw) {
-  return /^0[7-9]\d{9}$/.test(normalizeNigerianPhone(raw));
-}
-
 async function extractFunctionErrorMessage(error) {
   // supabase-js v2: FunctionsHttpError carries the real message in
   // error.context (a Response) when the edge function returns non-2xx.
@@ -53,6 +49,27 @@ async function extractFunctionErrorMessage(error) {
     }
   }
   return error?.message || "Something went wrong. Please try again.";
+}
+
+// Reads the active per-network user discounts. Returns the parsed map, or null
+// when the read failed. Pure data access with no state involved, so the effect
+// that calls it does not setState synchronously.
+async function fetchAirtimeDiscounts() {
+  const { data, error } = await supabase
+    .from("airtime_settings")
+    .select("network, user_discount")
+    .eq("is_active", true);
+
+  if (error) {
+    console.error("[BuyAirtime] airtime_settings read failed:", error.message);
+    return null;
+  }
+
+  const map = {};
+  for (const row of data || []) {
+    map[row.network] = Number(row.user_discount) || 0;
+  }
+  return map;
 }
 
 function SummaryRow({ label, value, highlight = false }) {
@@ -109,7 +126,10 @@ export default function BuyAirtime() {
 
   // Per-network user discount (%) from admin Airtime settings. Used only to
   // show the exact wallet charge; the backend remains authoritative.
+  // `settingsState` gates purchasing: while the discounts are unknown we must
+  // not display a guessed charge or let the user buy against one.
   const [discounts, setDiscounts] = useState({});
+  const [settingsState, setSettingsState] = useState("loading");
 
   const [network, setNetwork] = useState("MTN");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -119,27 +139,40 @@ export default function BuyAirtime() {
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
+  const purchaseInFlightRef = useRef(false);
 
   const [toast, setToast] = useState(null);
   const [pending, setPending] = useState(null);
   const [successReceipt, setSuccessReceipt] = useState(null);
 
+  // Retry path only (event handler, not an effect).
+  const refreshAirtimeSettings = useCallback(async () => {
+    const map = await fetchAirtimeDiscounts();
+    if (map === null) {
+      // The backend always applies the discount, so an unreadable row means
+      // the displayed charge would be wrong. Fail closed.
+      setDiscounts({});
+      setSettingsState("error");
+      return;
+    }
+    setDiscounts(map);
+    setSettingsState("ready");
+  }, []);
+
   useEffect(() => {
     let ignore = false;
 
     async function loadAirtimeSettings() {
-      const { data, error } = await supabase
-        .from("airtime_settings")
-        .select("network, user_discount")
-        .eq("is_active", true);
+      const map = await fetchAirtimeDiscounts();
+      if (ignore) return;
 
-      if (ignore || error) return;
-
-      const map = {};
-      for (const row of data || []) {
-        map[row.network] = Number(row.user_discount) || 0;
+      if (map === null) {
+        setDiscounts({});
+        setSettingsState("error");
+        return;
       }
       setDiscounts(map);
+      setSettingsState("ready");
     }
 
     loadAirtimeSettings();
@@ -148,7 +181,17 @@ export default function BuyAirtime() {
     };
   }, []);
 
-  const walletBalance = Number(wallet?.balance) || 0;
+  function handleRetrySettings() {
+    if (settingsState === "loading") return;
+    setSettingsState("loading");
+    refreshAirtimeSettings();
+  }
+
+  // A missing wallet row means "not loaded yet", not a zero balance. Treating
+  // it as 0 previously showed "insufficient funds" to funded users.
+  const walletBalance = wallet ? Number(wallet.balance) || 0 : null;
+  const walletUnavailable = walletBalance === null;
+  const settingsReady = settingsState === "ready";
   const parsedAmount = parseInt(amount, 10) || 0;
   const amountIsValid =
     amount !== "" && parsedAmount > 0 && parsedAmount <= MAX_AMOUNT;
@@ -159,17 +202,27 @@ export default function BuyAirtime() {
       ? "Enter a valid Nigerian phone number (e.g. 080XXXXXXXX)."
       : "";
 
-  const userDiscount = discounts[network] || 0;
+  const userDiscount = discounts[network] ?? null;
+  // Only compute a charge once the discount for the selected network is known.
+  const chargeKnown = userDiscount !== null;
   const charge =
-    parsedAmount > 0
+    parsedAmount > 0 && chargeKnown
       ? Math.round(parsedAmount * (1 - userDiscount / 100) * 100) / 100
-      : 0;
-  const sufficient = charge <= walletBalance;
+      : null;
+  // With an unknown wallet or unknown charge we cannot assert sufficiency.
+  const sufficient =
+    charge !== null && walletBalance !== null ? charge <= walletBalance : false;
 
   const networkLabel =
     NETWORKS.find((n) => n.value === network)?.label || network;
 
-  const canSubmit = phoneIsValid && amountIsValid && sufficient && !purchasing;
+  const canSubmit =
+    phoneIsValid &&
+    amountIsValid &&
+    settingsReady &&
+    !walletUnavailable &&
+    sufficient &&
+    !purchasing;
 
   function handleSelectNetwork(value) {
     if (purchasing) return;
@@ -189,32 +242,57 @@ export default function BuyAirtime() {
     setToast(null);
   }
 
-  // Normalize on change so the input never retains an unnormalized value
-  // (e.g. "+234 703 740 8580" -> "07037408580"), while preserving the caret
-  // so normal digit typing is unaffected.
+  // Keep the raw text while typing so a half-entered international prefix
+  // ("2", "23", "234") is never rewritten to "0" and the caret never jumps.
+  // A complete valid number is canonicalised straight away, so pasting
+  // "+234 803 740 8580" snaps to "08037408580"; an incomplete value is
+  // normalised on blur instead.
   function handlePhoneChange(e) {
     const input = e.target;
     const raw = input.value;
-    const normalized = normalizeNigerianPhone(raw);
-    const caret = input.selectionStart ?? raw.length;
+    const next = normalizeNigerianPhoneOnComplete(raw);
 
-    setPhoneNumber(normalized);
+    setPhoneNumber(next);
 
-    if (normalized === raw) return;
+    if (next === raw) return;
 
+    // Only reached when a whole number was entered and got canonicalised, so
+    // the caret belongs at the end for any further typing.
     requestAnimationFrame(() => {
       const el = phoneInputRef.current;
       if (!el) return;
-      const removedBeforeCaret = (raw.slice(0, caret).match(/\D/g) || []).length;
-      const pos = Math.max(0, caret - removedBeforeCaret);
-      el.setSelectionRange(pos, pos);
+      const len = el.value.length;
+      el.setSelectionRange(len, len);
     });
+  }
+
+  function handlePhoneBlur() {
+    setPhoneTouched(true);
+    setPhoneNumber((prev) => normalizeNigerianPhone(prev));
   }
 
   function handleOpenConfirm() {
     setPhoneTouched(true);
     setToast(null);
 
+    if (!settingsReady) {
+      setToast({
+        type: "error",
+        title: "Pricing unavailable",
+        message:
+          "We could not load airtime pricing, so the exact amount to pay is unknown. Please retry before buying.",
+      });
+      return;
+    }
+    if (walletUnavailable) {
+      setToast({
+        type: "error",
+        title: "Wallet unavailable",
+        message:
+          "Your wallet balance could not be loaded. Please refresh the page before buying airtime.",
+      });
+      return;
+    }
     if (!phoneIsValid) {
       setToast({
         type: "error",
@@ -246,8 +324,14 @@ export default function BuyAirtime() {
   }
 
   async function handleConfirmPurchase() {
-    if (purchasing) return;
+    // Synchronous in-flight latch: `purchasing` state is only committed on the
+    // next render, so it cannot by itself stop a second invocation arriving in
+    // the same tick. Reduces duplicate submissions only — not a substitute for
+    // server-side idempotency.
+    if (purchaseInFlightRef.current) return;
+    if (!settingsReady || walletUnavailable) return;
 
+    purchaseInFlightRef.current = true;
     setPurchasing(true);
     setToast(null);
 
@@ -271,13 +355,10 @@ export default function BuyAirtime() {
       if (data?.error) {
         throw new Error(data.error);
       }
-      if (data?.success === false && !data?.pending) {
-        throw new Error(data.error || "Airtime purchase failed. Please try again.");
-      }
-
-      setConfirmOpen(false);
-
+      // Unknown provider outcome — wallet stays debited, transaction stays
+      // pending. Never reported as a failure (see BuyData for the same rule).
       if (data?.pending) {
+        setConfirmOpen(false);
         setPending({
           message:
             data.message ||
@@ -287,26 +368,39 @@ export default function BuyAirtime() {
         refreshWallet();
         return;
       }
-
-      if (data?.success) {
-        const receipt = await buildReceipt(data, normalizedPhone);
-        setSuccessReceipt(receipt);
-        refreshWallet();
-        setPhoneNumber("");
-        setPhoneTouched(false);
-        setAmount("");
+      if (data?.success === false) {
+        throw new Error(data.error || "Airtime purchase failed. Please try again.");
       }
+      // A 2xx with no recognisable outcome must never be shown as success and
+      // must never silently close the confirmation. No auto-retry, no
+      // auto-refund from the client.
+      if (!data?.success) {
+        throw new Error(
+          "We could not confirm the result of this purchase. Please check your transactions before trying again — an unconfirmed purchase is refunded automatically, never charged twice.",
+        );
+      }
+
+      const receipt = await buildReceipt(data, normalizedPhone);
+      setConfirmOpen(false);
+      setSuccessReceipt(receipt);
+      refreshWallet();
+      setPhoneNumber("");
+      setPhoneTouched(false);
+      setAmount("");
     } catch (err) {
       setConfirmOpen(false);
+      // The wallet may already have been debited before the failure, so always
+      // re-read it. Refresh only: no auto-retry, no auto-refund.
       refreshWallet();
       setToast({
         type: "error",
         title: "Purchase Failed",
         message:
           err.message ||
-          "We could not complete the airtime purchase. Your wallet was not charged.",
+          "We could not complete the airtime purchase. Check your transactions — an unconfirmed purchase is refunded automatically.",
       });
     } finally {
+      purchaseInFlightRef.current = false;
       setPurchasing(false);
     }
   }
@@ -337,7 +431,7 @@ export default function BuyAirtime() {
       network: networkLabel,
       plan: `${formatNaira(parsedAmount)} · ${networkLabel}`,
       phone: normalizedPhone,
-      amount: formatNaira(charge),
+      amount: formatNaira(charge ?? parsedAmount),
       reference,
       date: new Date().toLocaleString("en-NG", {
         dateStyle: "medium",
@@ -368,6 +462,39 @@ export default function BuyAirtime() {
       />
 
       <GlassCard className="p-5 lg:p-6 space-y-1">
+        {/* Pricing availability — the displayed charge depends on the
+            per-network discount, so this must resolve before buying. */}
+        {settingsState === "error" && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 mb-4">
+            <p className="text-sm font-semibold text-red-700">
+              We could not load airtime pricing.
+            </p>
+            <p className="text-xs text-red-600 mt-1">
+              The exact amount to pay is unknown, so buying is paused. Your
+              wallet is unaffected.
+            </p>
+            <button
+              type="button"
+              onClick={handleRetrySettings}
+              className="mt-2.5 inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {walletUnavailable && settingsState !== "error" && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 mb-4">
+            <p className="text-sm font-semibold text-amber-800">
+              Loading your wallet balance…
+            </p>
+            <p className="text-xs text-amber-700 mt-1">
+              Buying is paused until your balance is known, so you are never
+              shown a false "insufficient funds" message.
+            </p>
+          </div>
+        )}
+
         {/* Network selector */}
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-3">
@@ -421,7 +548,7 @@ export default function BuyAirtime() {
               value={phoneNumber}
               disabled={purchasing}
               onChange={handlePhoneChange}
-              onBlur={() => setPhoneTouched(true)}
+              onBlur={handlePhoneBlur}
               className={`w-full pl-10 pr-4 py-2.5 rounded-xl border-2 bg-white text-sm outline-none transition-colors disabled:opacity-60 ${
                 phoneError
                   ? "border-red-300 focus:border-red-400"
@@ -515,7 +642,13 @@ export default function BuyAirtime() {
             />
             <SummaryRow
               label="Amount to pay"
-              value={parsedAmount > 0 ? formatNaira(charge) : "—"}
+              value={
+                parsedAmount > 0
+                  ? charge !== null
+                    ? formatNaira(charge)
+                    : "Unavailable"
+                  : "—"
+              }
               highlight
             />
             <SummaryRow
@@ -523,12 +656,26 @@ export default function BuyAirtime() {
               value={
                 <span className="inline-flex items-center gap-1.5">
                   <Wallet className="w-4 h-4" />
-                  {formatNaira(walletBalance)}
+                  {walletBalance !== null
+                    ? formatNaira(walletBalance)
+                    : "Loading…"}
                 </span>
               }
             />
           </div>
-          {parsedAmount > 0 && !sufficient && (
+          {settingsState === "error" && parsedAmount > 0 && (
+            <p className="text-xs text-red-600 mt-2">
+              The amount to pay could not be determined. Please retry loading
+              pricing before buying.
+            </p>
+          )}
+          {walletUnavailable && parsedAmount > 0 && (
+            <p className="text-xs text-amber-600 mt-2">
+              Your wallet balance is still loading. Buying will unlock once it
+              is available.
+            </p>
+          )}
+          {parsedAmount > 0 && !sufficient && settingsReady && !walletUnavailable && (
             <p className="text-xs text-red-600 mt-2">
               Your wallet balance is lower than the amount to pay. Please top up
               your wallet first.
@@ -567,7 +714,7 @@ export default function BuyAirtime() {
           `Network: ${networkLabel}`,
           `Phone: ${normalizeNigerianPhone(phoneNumber)}`,
           `Airtime: ${formatNaira(parsedAmount)}`,
-          `Amount to pay: ${formatNaira(charge)}`,
+          `Amount to pay: ${charge !== null ? formatNaira(charge) : "Unavailable"}`,
           "",
           "This amount will be deducted from your wallet.",
         ].join("\n")}

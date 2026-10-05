@@ -19,6 +19,11 @@ import ConfirmModal from "../../components/ui/ConfirmModal";
 import Toast from "../../components/ui/Toast";
 import PurchaseSuccessModal from "../../components/ui/PurchaseSuccessModal";
 import SEO from "../../components/seo/SEO";
+import {
+  isValidNigerianPhone,
+  normalizeNigerianPhone,
+  normalizeNigerianPhoneOnComplete,
+} from "../../lib/nigerianPhone";
 
 const NETWORK_THEME = {
   mtn: { badge: "bg-yellow-400 text-slate-900", initials: "MTN" },
@@ -64,33 +69,40 @@ function parseValidityDays(validity) {
 function parseValidityKeyword(validity) {
   if (!validity) return null;
   const lower = validity.toLowerCase();
+
+  // Explicit annual wording is checked first so "1 year" and "12 months"
+  // are never lost to the generic month/day keyword fallbacks. The \b keeps
+  // "1 year" from matching inside longer numbers such as "21 year".
+  if (/\b1\s*[- ]?\s*year/.test(lower)) return "yearly";
+  if (/\b12\s*[- ]?\s*month/.test(lower)) return "yearly";
+  if (lower.includes("yearly") || lower.includes("annual")) return "yearly";
+
   if (lower.includes("daily")) return "daily";
   if (lower.includes("weekly")) return "weekly";
   if (lower.includes("monthly")) return "monthly";
-  if (lower.includes("yearly") || lower.includes("annual")) return "yearly";
   return null;
 }
 
 function getValidityCategory(validity) {
   const days = parseValidityDays(validity);
+
+  // Explicit annual wording wins over any day count, so "1 year" and
+  // "12 months" never fall through to the multi-month bucket.
+  if (parseValidityKeyword(validity) === "yearly") {
+    return "yearly";
+  }
+
   if (days !== null) {
+    // 60/90/120-day bundles are long, not annual. They land in "Other"
+    // until the plan-type tabs grow a dedicated bucket.
+    if (days >= 330 && days <= 400) return "yearly";
     if (days <= 3) return "daily";
     if (days <= 13) return "weekly";
     if (days <= 45) return "monthly";
-    return "yearly";
+    return "other";
   }
+
   return parseValidityKeyword(validity) || "other";
-}
-
-function isValidNigerianPhone(raw) {
-  const digits = (raw || "").replace(/\D/g, "");
-  const normalized = digits.startsWith("234") ? "0" + digits.slice(3) : digits;
-  return /^0[7-9]\d{9}$/.test(normalized);
-}
-
-function normalizeNigerianPhone(raw) {
-  const digits = (raw || "").replace(/\D/g, "");
-  return digits.startsWith("234") ? "0" + digits.slice(3) : digits;
 }
 
 function formatNaira(amount) {
@@ -185,30 +197,42 @@ export default function BuyData() {
   const [phoneTouched, setPhoneTouched] = useState(false);
   const phoneInputRef = useRef(null);
 
-  // Normalize on change so the input never retains an unnormalized value
-  // (e.g. "+234 703 740 8580" -> "07037408580"), while preserving the caret
-  // so normal digit typing is unaffected.
+  // Keep the raw text while typing so a half-entered international prefix
+  // ("2", "23", "234") is never rewritten to "0" and the caret never jumps.
+  // A complete valid number is canonicalised straight away, so pasting
+  // "+234 803 740 8580" snaps to "08037408580"; an incomplete value is
+  // normalised on blur instead.
   function handlePhoneChange(e) {
     const input = e.target;
     const raw = input.value;
-    const normalized = normalizeNigerianPhone(raw);
-    const caret = input.selectionStart ?? raw.length;
+    const next = normalizeNigerianPhoneOnComplete(raw);
 
-    setPhoneNumber(normalized);
+    setPhoneNumber(next);
 
-    if (normalized === raw) return;
+    if (next === raw) return;
 
+    // Only reached when a whole number was entered and got canonicalised, so
+    // the caret belongs at the end for any further typing.
     requestAnimationFrame(() => {
       const el = phoneInputRef.current;
       if (!el) return;
-      const removedBeforeCaret = (raw.slice(0, caret).match(/\D/g) || []).length;
-      const pos = Math.max(0, caret - removedBeforeCaret);
-      el.setSelectionRange(pos, pos);
+      const len = el.value.length;
+      el.setSelectionRange(len, len);
     });
+  }
+
+  function handlePhoneBlur() {
+    setPhoneTouched(true);
+    setPhoneNumber((prev) => normalizeNigerianPhone(prev));
   }
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
+  // Synchronous in-flight latch. `purchasing` state is only committed on the
+  // next render, so it cannot by itself stop a second invocation arriving in
+  // the same tick. This reduces duplicate submissions only — it is NOT a
+  // substitute for server-side idempotency on the purchase RPC.
+  const purchaseInFlightRef = useRef(false);
 
   const [toast, setToast] = useState(null);
   const [successReceipt, setSuccessReceipt] = useState(null);
@@ -391,7 +415,9 @@ export default function BuyData() {
 
   async function handleConfirmPurchase() {
     if (!selectedPlan) return;
+    if (purchaseInFlightRef.current) return;
 
+    purchaseInFlightRef.current = true;
     setPurchasing(true);
     setToast(null);
 
@@ -430,8 +456,17 @@ export default function BuyData() {
       }
 
       if (data?.success === false) {
-        refreshWallet();
         throw new Error(data.error || "Purchase failed. Please try again.");
+      }
+
+      // A 2xx response with no recognisable outcome must never be shown as
+      // success: the wallet may already be debited. Report it as an unknown
+      // result instead. Note this never retries and never refunds — the
+      // server-side transaction state is what settles.
+      if (!data?.success) {
+        throw new Error(
+          "We could not confirm the result of this purchase. Please check your transactions before trying again — an unconfirmed purchase is refunded automatically, never charged twice.",
+        );
       }
 
       const providerMessage = data?.provider?.api_response;
@@ -459,12 +494,19 @@ export default function BuyData() {
       refreshWallet();
     } catch (err) {
       setConfirmOpen(false);
+      // The wallet may already have been debited before the failure —
+      // HTTP-level errors include the edge function's 500 raised after
+      // start_data_purchase ran. Always re-read the balance so the UI cannot
+      // keep showing a pre-debit figure. Refresh only: no auto-retry, no
+      // auto-refund from the client.
+      refreshWallet();
       setToast({
         type: "error",
         title: "Purchase Failed",
         message: err.message || "Purchase failed. Please try again.",
       });
     } finally {
+      purchaseInFlightRef.current = false;
       setPurchasing(false);
     }
   }
@@ -560,7 +602,7 @@ export default function BuyData() {
               placeholder="080XXXXXXXX"
               value={phoneNumber}
               onChange={handlePhoneChange}
-              onBlur={() => setPhoneTouched(true)}
+              onBlur={handlePhoneBlur}
               className={`w-full pl-10 pr-4 py-2.5 rounded-xl border-2 bg-white text-sm outline-none transition-colors ${
                 phoneError
                   ? "border-red-300 focus:border-red-400"

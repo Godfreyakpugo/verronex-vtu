@@ -1,6 +1,13 @@
 -- ============================================================================
 -- start_data_purchase (updated to store provider cost in metadata for accounting)
--- ============================================================================
+--
+-- SECURITY: now enforces that p_user_id is the calling user (auth.uid()),
+-- mirroring start_airtime_purchase. This function is SECURITY DEFINER with
+-- EXECUTE granted to `authenticated`, so without that check any signed-in
+-- caller could pass another user's uuid and debit that user's wallet.
+-- The purchase edge functions call it with the caller's own JWT (anon key +
+-- forwarded Authorization header), so the real flow is unaffected.
+-- ========================================================================
 create or replace function public.start_data_purchase(
   p_user_id uuid,
   p_plan_id uuid,
@@ -26,6 +33,14 @@ declare
   v_tx uuid;
   v_cost_price numeric;
 begin
+  -- Ownership check (mirrors start_airtime_purchase). This function is
+  -- SECURITY DEFINER and EXECUTE is granted to `authenticated`, so without
+  -- this guard any signed-in caller could pass another user's uuid and debit
+  -- that user's wallet. Must run before the wallet row is locked.
+  IF p_user_id IS NULL OR p_user_id <> auth.uid() THEN
+      RAISE EXCEPTION 'Not authorized.';
+  END IF;
+
   -- Lock wallet row
   SELECT w.balance
   INTO v_wallet_balance
