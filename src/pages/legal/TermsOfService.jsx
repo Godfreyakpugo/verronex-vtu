@@ -206,7 +206,7 @@ export default function TermsOfService() {
             <p>
               If you have questions about these Terms, please contact Verronex
               support through the in-app “Message Us” option, by email at
-              godfreyakpugo@gmail.com, by phone or WhatsApp at 0814 018 1282,
+              verronexconcepts@gmail.com, by phone or WhatsApp at +234 902 907 3673,
               or at No. 4 Chris Eruchie Crescent, Phase 6 Extension, Trans
               Ekulu, Enugu, Nigeria.
             </p>

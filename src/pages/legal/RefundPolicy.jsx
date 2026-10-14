@@ -143,8 +143,8 @@ export default function RefundPolicy() {
             </p>
             <p>
               To raise a dispute, contact support promptly through the in-app
-              “Message Us” option, by email at godfreyakpugo@gmail.com, or by
-              phone or WhatsApp at 0814 018 1282.
+              “Message Us” option, by email at verronexconcepts@gmail.com, or by
+              phone or WhatsApp at +234 902 907 3673.
             </p>
           </Section>
 

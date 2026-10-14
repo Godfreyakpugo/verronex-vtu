@@ -192,8 +192,8 @@ export default function PrivacyPolicy() {
             <p>
               To exercise those rights or ask questions about your data, please
               contact us through the in-app “Message Us” option, by email at
-              godfreyakpugo@gmail.com, or by phone or WhatsApp at 0814 018
-              1282. You also have the right to lodge a complaint with the
+              verronexconcepts@gmail.com, or by phone or WhatsApp at +234 902
+              907 3673. You also have the right to lodge a complaint with the
               Nigeria Data Protection Commission (NDPC) if you believe your
               data has been mishandled.
             </p>

@@ -255,19 +255,19 @@ export default function LandingPage() {
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-5 text-xs">
             <a
-              href="tel:08140181282"
+              href="tel:+2349029073673"
               className="inline-flex items-center gap-1.5 font-semibold text-slate-600 hover:text-fuchsia-600 transition-colors"
             >
               <Phone className="w-3.5 h-3.5 text-fuchsia-600" />
-              0814 018 1282
+              +234 902 907 3673
             </a>
             <span className="hidden sm:block text-slate-300">·</span>
             <a
-              href="mailto:godfreyakpugo@gmail.com"
+              href="mailto:verronexconcepts@gmail.com"
               className="inline-flex items-center gap-1.5 font-semibold text-slate-600 hover:text-fuchsia-600 transition-colors"
             >
               <Mail className="w-3.5 h-3.5 text-fuchsia-600" />
-              godfreyakpugo@gmail.com
+              verronexconcepts@gmail.com
             </a>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-xs text-slate-500">
