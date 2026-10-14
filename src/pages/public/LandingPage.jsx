@@ -293,7 +293,7 @@ export default function LandingPage() {
             </Link>
           </div>
           <p className="text-xs text-slate-400">
-            © {new Date().getFullYear()} Verronex VTU. Verronex LOOM. All rights
+            © {new Date().getFullYear()} Verronex VTU. Godfrey Verronex Concepts. All rights
             reserved.
           </p>
         </div>
