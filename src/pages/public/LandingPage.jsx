@@ -53,7 +53,7 @@ export default function LandingPage() {
   const canonicalUrl = "https://verronex.com/";
   const pageTitle = "Verronex — Nigerian VTU Platform for Cheap Data & Airtime";
   const pageDescription =
-    "Verronex is a Nigerian VTU platform for buying affordable mobile data and airtime. Fund your wallet once and top up any MTN, Airtel, Glo or 9mobile number instantly at great prices.";
+    "Verronex VTU is owned and operated by Godfrey Verronex Concepts. Buy affordable mobile data and airtime for MTN, Airtel, Glo and 9mobile in Nigeria.";
   const absoluteImage = `https://verronex.com${logoUrl}`;
   const [pricelist, setPricelist] = useState(null);
   const [loadError, setLoadError] = useState(false);
@@ -141,9 +141,9 @@ export default function LandingPage() {
           Verronex — Nigerian VTU Platform for Affordable Data &amp; Airtime
         </h1>
         <p className="mt-4 text-sm sm:text-base text-slate-500 max-w-2xl mx-auto">
-          Verronex is a Nigerian VTU platform for buying mobile data and airtime
-          at affordable prices — fund your wallet once and top up any MTN,
-          Airtel, Glo or 9mobile number in seconds.
+          Owned and operated by Godfrey Verronex Concepts, Verronex VTU makes it
+          easy to buy affordable data and airtime for MTN, Airtel, Glo and
+          9mobile.
         </p>
 
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -292,9 +292,11 @@ export default function LandingPage() {
               Refund Policy
             </Link>
           </div>
+          <p className="pt-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+            Powered by <span className="text-slate-600">Godfrey Verronex Concepts</span>
+          </p>
           <p className="text-xs text-slate-400">
-            © {new Date().getFullYear()} Verronex VTU. Godfrey Verronex Concepts. All rights
-            reserved.
+            © {new Date().getFullYear()} Godfrey Verronex Concepts. All rights reserved.
           </p>
         </div>
       </footer>
