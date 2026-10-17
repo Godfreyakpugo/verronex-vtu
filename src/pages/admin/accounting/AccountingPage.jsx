@@ -46,6 +46,8 @@ export default function AccountingPage() {
     sales: 0,
     profit: 0,
     transactions: 0,
+    costKnown: 0,
+    costUnknown: 0,
   });
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -102,8 +104,21 @@ export default function AccountingPage() {
           sales: acc.sales + Number(r.sales || 0),
           profit: acc.profit + Number(r.profit || 0),
           transactions: acc.transactions + Number(r.successful_transactions || 0),
+          // Profit is only computed over rows whose provider cost is known.
+          // Track how many are uncosted so the headline figure is never read as
+          // complete coverage.
+          costKnown:
+            acc.costKnown + Number(r.cost_known_transactions || 0),
+          costUnknown:
+            acc.costUnknown + Number(r.cost_unknown_transactions || 0),
         }),
-        { sales: 0, profit: 0, transactions: 0 }
+        {
+          sales: 0,
+          profit: 0,
+          transactions: 0,
+          costKnown: 0,
+          costUnknown: 0,
+        },
       );
 
       setSummary(totals);
@@ -143,6 +158,8 @@ export default function AccountingPage() {
   const totalSales = summary.sales;
   const totalProfit = summary.profit;
   const totalTransactions = summary.transactions;
+  const totalCostUnknown = summary.costUnknown;
+  const totalCostKnown = summary.costKnown;
 
   const periodLabel =
     PERIOD_OPTIONS.find((o) => o.key === period)?.label ?? "Selected period";
@@ -175,6 +192,27 @@ export default function AccountingPage() {
         message={error}
         onDismiss={() => setError("")}
       />
+
+      {/* Cost-coverage warning. Profit is computed only over transactions whose
+          provider cost was captured. Historical data purchases lost their
+          cost_price when completion replaced transaction metadata, so the
+          figure below is deliberately incomplete rather than silently padded
+          with today's prices. */}
+      {!loading && !error && totalCostUnknown > 0 && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3">
+          <p className="text-sm font-bold text-amber-900">
+            Profit covers {totalCostKnown.toLocaleString()} of{" "}
+            {totalTransactions.toLocaleString()} transactions
+          </p>
+          <p className="text-xs text-amber-800 mt-1">
+            {totalCostUnknown.toLocaleString()} transaction
+            {totalCostUnknown === 1 ? "" : "s"} in this period have no recorded
+            provider cost, so they are excluded from cost and profit. This
+            happens on data purchases recorded before provider cost was preserved
+            on the transaction. No substitute cost has been applied.
+          </p>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

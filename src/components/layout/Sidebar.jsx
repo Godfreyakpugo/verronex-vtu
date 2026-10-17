@@ -12,6 +12,7 @@ import {
   Package,
   ReceiptText,
   Megaphone,
+  Zap,
 } from "lucide-react";
 import BrandLogo from "../ui/BrandLogo";
 import { useAuth } from "../../context/AuthContext";
@@ -26,9 +27,11 @@ const navItems = [
   { to: ROUTES.SETTINGS, icon: Settings, label: "Settings" },
 ];
 
-function Sidebar({ open, onClose, pendingCount = 0 }) {
+function Sidebar({ open, onClose, pendingCounts = {} }) {
   const { profile } = useAuth();
   const isAdmin = profile?.is_admin === true;
+  const manualPendingCount = pendingCounts.manual || 0;
+  const automaticPendingCount = pendingCounts.automatic || 0;
 
   return (
     <>
@@ -115,7 +118,7 @@ function Sidebar({ open, onClose, pendingCount = 0 }) {
               </NavLink>
 
               <NavLink
-                to="/admin/funding"
+                to="/admin/funding/manual"
                 onClick={onClose}
                 className={({ isActive }) => `
                   flex items-center gap-3 px-3 py-2.5 rounded-xl
@@ -130,8 +133,8 @@ function Sidebar({ open, onClose, pendingCount = 0 }) {
                 {({ isActive }) => (
                   <>
                     <Wallet className="w-4 h-4 shrink-0" />
-                    <span className="flex-1 text-left">Funding Requests</span>
-                    {pendingCount > 0 && (
+                    <span className="flex-1 text-left">Manual Funding</span>
+                    {manualPendingCount > 0 && (
                       <span
                         className={`ml-auto min-w-5 h-5 px-1.5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none
                           ${
@@ -139,9 +142,43 @@ function Sidebar({ open, onClose, pendingCount = 0 }) {
                               ? "bg-white/20 text-white border border-white/30"
                               : "bg-fuchsia-600 text-white shadow-sm shadow-fuchsia-500/20"
                           }`}
-                        aria-label={`${pendingCount} pending funding requests`}
+                        aria-label={`${manualPendingCount} pending manual funding requests`}
                       >
-                        {pendingCount > 99 ? "99+" : pendingCount}
+                        {manualPendingCount > 99 ? "99+" : manualPendingCount}
+                      </span>
+                    )}
+                  </>
+                )}
+              </NavLink>
+
+              <NavLink
+                to="/admin/funding/automatic"
+                onClick={onClose}
+                className={({ isActive }) => `
+                  flex items-center gap-3 px-3 py-2.5 rounded-xl
+                  text-sm font-semibold transition-all duration-150 mt-1
+                  ${
+                    isActive
+                      ? "bg-linear-to-r from-indigo-900 via-purple-800 to-fuchsia-700 text-white shadow-md shadow-purple-900/25"
+                      : "bg-linear-to-r from-indigo-900/8 via-purple-800/8 to-fuchsia-700/8 text-purple-700 border border-purple-200/50 hover:border-purple-300/70"
+                  }
+                `}
+              >
+                {({ isActive }) => (
+                  <>
+                    <Zap className="w-4 h-4 shrink-0" />
+                    <span className="flex-1 text-left">Automatic Funding</span>
+                    {automaticPendingCount > 0 && (
+                      <span
+                        className={`ml-auto min-w-5 h-5 px-1.5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none
+                          ${
+                            isActive
+                              ? "bg-white/20 text-white border border-white/30"
+                              : "bg-fuchsia-600 text-white shadow-sm shadow-fuchsia-500/20"
+                          }`}
+                        aria-label={`${automaticPendingCount} pending automatic funding requests`}
+                      >
+                        {automaticPendingCount > 99 ? "99+" : automaticPendingCount}
                       </span>
                     )}
                   </>

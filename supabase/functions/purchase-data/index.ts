@@ -38,7 +38,16 @@ Deno.serve(async (req) => {
             Authorization: authHeader,
           },
         },
-      }
+      },
+    );
+
+    // Server-only client. Used exclusively for finalising a purchase, so that
+    // completion cannot be driven by a signed-in customer calling the RPC
+    // directly with their own pending reference. The service role key is read
+    // from the function environment and is never returned to the browser.
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
     const {
@@ -224,24 +233,40 @@ Deno.serve(async (req) => {
       response?.ok &&
       provider?.Status?.toLowerCase() === "successful"
     ) {
-      console.log("[10] Completing transaction via complete_data_purchase");
+      console.log("[10] Completing transaction via complete_data_purchase_server");
 
-      const { data: completed, error: completeError } = await supabase.rpc(
-        "complete_data_purchase",
-        { p_reference: reference, p_metadata: provider }
-      );
+      // Server-only RPC: the caller is trusted because the provider has just
+      // confirmed success AND the request authenticated the user at line ~49.
+      // Requires complete_data_purchase_server.sql to be applied.
+      const { data: completed, error: completeError } =
+        await supabaseAdmin.rpc("complete_data_purchase_server", {
+          p_reference: reference,
+          p_metadata: provider,
+        });
 
       if (completeError) {
+        console.error(
+          "[10.1] Completion RPC error:",
+          completeError.message,
+        );
         return Response.json(
           { success: false, error: completeError.message },
-          { headers: corsHeaders }
+          { headers: corsHeaders },
         );
       }
 
       if (!completed) {
+        // False means the reference is unknown or no longer pending — for
+        // example a refund already settled it. Never report success.
+        console.error("[10.2] Completion returned false", reference);
         return Response.json(
-          { success: false, error: "Transaction could not be completed." },
-          { headers: corsHeaders }
+          {
+            success: false,
+            error:
+              "Your data was delivered but this transaction could not be finalised automatically. Please contact support with your reference — do not pay again.",
+            reference,
+          },
+          { headers: corsHeaders },
         );
       }
 
@@ -252,9 +277,14 @@ Deno.serve(async (req) => {
           success: true,
           message: "Purchase completed successfully.",
           reference,
+          // Returned to the authenticated customer for their own receipt.
+          // BuyData.jsx reads provider.api_response and the provider reference
+          // from this. Privacy of *stored* metadata is enforced separately by
+          // public.data_provider_allowlist(); this is a transient echo of the
+          // customer's own purchase, not a persistence decision.
           provider,
         },
-        { headers: corsHeaders }
+        { headers: corsHeaders },
       );
     }
 
@@ -264,31 +294,44 @@ Deno.serve(async (req) => {
     if (provider?.Status && provider.Status.toLowerCase() !== "successful") {
       console.log("[11] Calling refund_purchase");
 
-      const { error: refundError } = await supabase.rpc("refund_purchase", {
-        p_reference: reference,
-        p_reason: provider.api_response || "Provider failed",
-      });
+      const { data: refunded, error: refundError } = await supabase.rpc(
+        "refund_purchase",
+        {
+          p_reference: reference,
+          p_reason: provider.api_response || "Provider failed",
+        },
+      );
 
-      if (refundError) {
+      // Both conditions matter: an RPC error means the call did not complete,
+      // and a falsy return means the function ran but refunded nothing (for
+      // example the transaction was no longer pending). Only an explicit true
+      // means the wallet was actually credited back.
+      if (refundError || refunded !== true) {
+        console.error("[11.1] Refund not confirmed", {
+          reference,
+          refundErrorMessage: refundError?.message ?? null,
+          returned: refunded ?? null,
+        });
         return Response.json(
           {
             success: false,
             error:
-              "Data purchase failed and your wallet could not be automatically refunded. Please contact support.",
+              "Data purchase failed and we could not confirm an automatic refund. Please contact support with your reference — your wallet has not been double-charged and will be reconciled.",
+            reference,
           },
-          { status: 500, headers: corsHeaders }
+          { status: 500, headers: corsHeaders },
         );
       }
 
-      console.log("[12] Refund completed");
+      console.log("[12] Refund confirmed");
 
       return Response.json(
         {
           success: false,
+          refunded: true,
           error: provider.api_response || "Purchase failed",
-          provider,
         },
-        { headers: corsHeaders }
+        { headers: corsHeaders },
       );
     }
 

@@ -7,6 +7,13 @@ const corsHeaders = {
 
 const MAX_AMOUNT = 5000000;
 
+// Row shape selected when a funding request is created (id/amount/reference).
+type FundingRequest = {
+  id: string;
+  amount: number;
+  payment_reference: string;
+};
+
 function isValidAmount(value: unknown): boolean {
   return typeof value === "number" && Number.isInteger(value) && value > 0 && value <= MAX_AMOUNT;
 }
@@ -18,10 +25,46 @@ function generatePaymentReference(): string {
   return `FUND-${raw}`.toUpperCase();
 }
 
+// Fail closed: only trimmed "sandbox" or "live" are accepted. Missing or
+// unknown values must never silently select an environment.
+function resolveMonnifyEnv(): { mode: "sandbox" | "live"; baseUrl: string } | null {
+  const mode = (Deno.env.get("MONNIFY_ENV") || "").trim().toLowerCase();
+  if (mode === "sandbox") return { mode, baseUrl: "https://sandbox.monnify.com" };
+  if (mode === "live") return { mode, baseUrl: "https://api.monnify.com" };
+  return null;
+}
+
+// Log only safe provider status fields — never raw bodies, which can carry
+// access tokens, account numbers, or customer details into function logs.
+function providerFailureSummary(payload: unknown): Record<string, unknown> {
+  if (payload && typeof payload === "object") {
+    const p = payload as Record<string, unknown>;
+    return {
+      requestSuccessful: p.requestSuccessful ?? null,
+      responseCode: p.responseCode ?? null,
+      responseMessage: typeof p.responseMessage === "string" ? p.responseMessage.slice(0, 160) : null,
+    };
+  }
+  return { requestSuccessful: null };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  // 0. Server-side kill switch (default disabled) + fail-closed environment.
+  // VITE_MONNIFY_ENABLED only controls frontend display; this gate is authoritative.
+  if (Deno.env.get("MONNIFY_ENABLED") !== "true") {
+    return Response.json({ error: "Automatic funding is currently unavailable." }, { status: 503, headers: corsHeaders });
+  }
+
+  const monnifyEnv = resolveMonnifyEnv();
+  if (!monnifyEnv) {
+    console.error("[init-monnify-funding] MONNIFY_ENV missing or invalid (fail closed)");
+    return Response.json({ error: "Payment service is not configured. Please contact support." }, { status: 503, headers: corsHeaders });
+  }
+  const baseUrl = monnifyEnv.baseUrl;
 
   // 1. Require authenticated user
   const authHeader = req.headers.get("Authorization");
@@ -60,14 +103,11 @@ Deno.serve(async (req) => {
 
   const validAmount = amount as number;
 
-  // 3. Check Monnify config (server-side only)
+  // 3. Check Monnify credentials (server-side only).
+  // Environment was already resolved fail-closed at the top of the handler.
   const monnifyApiKey = Deno.env.get("MONNIFY_API_KEY");
   const monnifySecretKey = Deno.env.get("MONNIFY_SECRET_KEY");
   const monnifyContractCode = Deno.env.get("MONNIFY_CONTRACT_CODE");
-  const monnifyEnv = (Deno.env.get("MONNIFY_ENV") || "sandbox").toLowerCase();
-  const baseUrl = monnifyEnv === "live" || monnifyEnv === "production"
-    ? "https://api.monnify.com"
-    : "https://sandbox.monnify.com";
 
   if (!monnifyApiKey || !monnifySecretKey || !monnifyContractCode) {
     console.error("[init-monnify-funding] Monnify credentials not configured");
@@ -101,7 +141,7 @@ Deno.serve(async (req) => {
   );
 
   let paymentReference = generatePaymentReference();
-  let fundingRequest: { id: string; amount: number; payment_reference: string } | null = null;
+  let fundingRequest: FundingRequest | null = null;
   let lastInsertError: unknown = null;
 
   // Retry up to 3 times on unique violation (extremely unlikely)
@@ -118,7 +158,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (!error && data) {
-      fundingRequest = data as typeof fundingRequest;
+      fundingRequest = data as FundingRequest;
       break;
     }
 
@@ -138,6 +178,10 @@ Deno.serve(async (req) => {
     console.error("[init-monnify-funding] funding_requests insert failed", lastInsertError);
     return Response.json({ error: "Could not create funding request" }, { status: 500, headers: corsHeaders });
   }
+
+  // Safely narrowed handle for every later access (the closure below keeps
+  // its own non-null assertion because narrowing does not cross closures).
+  const activeRequest: FundingRequest = fundingRequest;
 
   // Helper to clean up orphaned funding_request if Monnify fails
   const cleanupFundingRequest = async () => {
@@ -159,14 +203,15 @@ Deno.serve(async (req) => {
     const authJson = await authRes.json().catch(() => null);
 
     if (!authRes.ok || !authJson?.requestSuccessful || !authJson?.responseBody?.accessToken) {
-      console.error("[init-monnify-funding] Monnify auth failed", authRes.status, authJson);
+      console.error("[init-monnify-funding] Monnify auth failed", authRes.status, providerFailureSummary(authJson));
       await cleanupFundingRequest();
       return Response.json({ error: "Payment service authentication failed" }, { status: 502, headers: corsHeaders });
     }
 
     const accessToken: string = authJson.responseBody.accessToken;
 
-    // 7. Initialize transaction
+    // 7. Initialize transaction (account transfer only — the frontend has no
+    // card checkout UI and never uses checkoutUrl, so CARD is not offered).
     const redirectUrl = "https://verronex.com/fund-wallet";
     const initPayload = {
       amount: validAmount,
@@ -177,7 +222,7 @@ Deno.serve(async (req) => {
       currencyCode: "NGN",
       contractCode: monnifyContractCode,
       redirectUrl,
-      paymentMethods: ["CARD", "ACCOUNT_TRANSFER"],
+      paymentMethods: ["ACCOUNT_TRANSFER"],
     };
 
     const initRes = await fetch(`${baseUrl}/api/v1/merchant/transactions/init-transaction`, {
@@ -192,7 +237,7 @@ Deno.serve(async (req) => {
     const initJson = await initRes.json().catch(() => null);
 
     if (!initRes.ok || !initJson?.requestSuccessful || !initJson?.responseBody?.transactionReference) {
-      console.error("[init-monnify-funding] init-transaction failed", initRes.status, initJson);
+      console.error("[init-monnify-funding] init-transaction failed", initRes.status, providerFailureSummary(initJson));
       await cleanupFundingRequest();
       // Do not leak provider payload
       return Response.json({ error: "Could not initialize payment. Please try again." }, { status: 502, headers: corsHeaders });
@@ -213,14 +258,14 @@ Deno.serve(async (req) => {
 
     const bankJson = await bankRes.json().catch(() => null);
 
-    // Monnify may return account details even if bankRes not ok, but we treat non-success as failure
-    // The bank transfer response shape varies; we extract safely.
+    // The bank transfer response shape varies slightly by API version; extract
+    // the account fields safely, but only accept an HTTP and provider-level
+    // success response.
     const accountDetails = bankJson?.responseBody || bankJson?.responseBody?.accountDetails || bankJson;
     // Fallback: some Monnify versions return accountNumber directly in responseBody
     const accountNumber = accountDetails?.accountNumber || accountDetails?.accountDetails?.accountNumber || null;
     const accountName = accountDetails?.accountName || accountDetails?.accountDetails?.accountName || null;
     const bankName = accountDetails?.bankName || accountDetails?.accountDetails?.bankName || accountDetails?.bank || null;
-    const accountDurationSeconds = accountDetails?.accountDurationSeconds || accountDetails?.expiryDate ? null : null;
     // Try to get duration/expiry
     let expiresAt: string | null = null;
     let durationSeconds: number | null = null;
@@ -230,8 +275,8 @@ Deno.serve(async (req) => {
     if (bankJson?.responseBody?.expiresOn) expiresAt = bankJson.responseBody.expiresOn;
     else if (accountDetails?.expiresOn) expiresAt = accountDetails.expiresOn;
 
-    if (!accountNumber) {
-      console.error("[init-monnify-funding] bank-transfer init failed or missing accountNumber", bankRes.status, bankJson);
+    if (!bankRes.ok || !bankJson?.requestSuccessful || !accountNumber) {
+      console.error("[init-monnify-funding] bank-transfer init failed or missing accountNumber", bankRes.status, providerFailureSummary(bankJson));
       await cleanupFundingRequest();
       return Response.json({ error: "Could not create payment account. Please try again." }, { status: 502, headers: corsHeaders });
     }
@@ -241,9 +286,8 @@ Deno.serve(async (req) => {
       .from("funding_requests")
       .update({
         transaction_reference: transactionReference,
-        webhook_payload: bankJson,
       })
-      .eq("id", fundingRequest.id);
+      .eq("id", activeRequest.id);
 
     if (updateError) {
       console.error("[init-monnify-funding] update transaction_reference failed", updateError.message);
@@ -254,7 +298,7 @@ Deno.serve(async (req) => {
     // 10. Return only safe info
     return Response.json({
       success: true,
-      fundingRequestId: fundingRequest.id,
+      fundingRequestId: activeRequest.id,
       paymentReference,
       transactionReference,
       amount: validAmount,
@@ -270,7 +314,7 @@ Deno.serve(async (req) => {
     console.error("[init-monnify-funding] unexpected error", (err as Error)?.message);
     // Attempt cleanup if we haven't saved transactionReference yet (i.e., funding request still without transactionReference)
     try {
-      const { data: existing } = await serviceClient.from("funding_requests").select("transaction_reference").eq("id", fundingRequest.id).maybeSingle();
+      const { data: existing } = await serviceClient.from("funding_requests").select("transaction_reference").eq("id", activeRequest.id).maybeSingle();
       if (!existing?.transaction_reference) {
         await cleanupFundingRequest();
       }

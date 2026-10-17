@@ -145,23 +145,30 @@ Deno.serve(async (req) => {
     const baseUrl = Deno.env.get("GLADTIDINGS_BASE_URL");
 
     if (!token || !baseUrl) {
-      const { error: refundError } = await supabase.rpc("refund_purchase", {
-        p_reference: reference,
-        p_reason: "Gladtidings credentials are not configured",
-      });
+      const { data: refunded, error: refundError } = await supabase.rpc(
+        "refund_purchase",
+        {
+          p_reference: reference,
+          p_reason: "Gladtidings credentials are not configured",
+        },
+      );
       console.error("[3] Refund after missing config:", {
         reference,
         refundErrorMessage: refundError?.message ?? "unknown",
+        refundReturned: refunded ?? null,
       });
 
-      if (refundError) {
+      // An RPC error means the call failed; a falsy return means the function
+      // ran but credited nothing. Only an explicit true means the customer was
+      // actually refunded, so only that case may claim it.
+      if (refundError || refunded !== true) {
         return Response.json(
           {
             error:
-              "Airtime service is not configured. We could not automatically restore your wallet balance. Please contact support with your transaction reference.",
+              "Airtime service is not configured. We could not confirm an automatic refund of your wallet balance. Please contact support with your transaction reference — your wallet will be reconciled.",
             reference,
           },
-          { status: 502, headers: corsHeaders }
+          { status: 502, headers: corsHeaders },
         );
       }
 
@@ -169,8 +176,9 @@ Deno.serve(async (req) => {
         {
           error:
             "Airtime service is not configured. Your wallet has been refunded.",
+          refunded: true,
         },
-        { status: 500, headers: corsHeaders }
+        { status: 500, headers: corsHeaders },
       );
     }
 
@@ -234,33 +242,39 @@ Deno.serve(async (req) => {
         (provider.api_response as string) ||
         (provider.message as string) ||
         "Airtime provider rejected the request";
-      const { error: refundError } = await supabase.rpc("refund_purchase", {
-        p_reference: reference,
-        p_reason: reason,
-      });
+      const { data: refunded, error: refundError } = await supabase.rpc(
+        "refund_purchase",
+        {
+          p_reference: reference,
+          p_reason: reason,
+        },
+      );
       console.error("[5] Refund after provider failure:", {
         reference,
         refundErrorMessage: refundError?.message ?? "unknown",
+        refundReturned: refunded ?? null,
       });
 
-      if (refundError) {
+      // Only an explicit true means the wallet was actually credited back.
+      if (refundError || refunded !== true) {
         return Response.json(
           {
             success: false,
             error:
-              "Airtime purchase could not be completed. We could not automatically restore your wallet balance. Please contact support with your transaction reference.",
+              "Airtime purchase could not be completed and we could not confirm an automatic refund of your wallet balance. Please contact support with your transaction reference.",
             reference,
           },
-          { status: 502, headers: corsHeaders }
+          { status: 502, headers: corsHeaders },
         );
       }
 
       return Response.json(
         {
           success: false,
+          refunded: true,
           error: "Airtime purchase failed. Your wallet has been refunded.",
         },
-        { status: 400, headers: corsHeaders }
+        { status: 400, headers: corsHeaders },
       );
     }
 

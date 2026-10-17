@@ -20,7 +20,8 @@ import "./index.css";
 
 // ✅ OUR NEW DOMAIN-DRIVEN IMPORTS
 import WalletManagement from "./pages/admin/wallet/WalletManagement";
-import FundingRequests from "./pages/admin/wallet/FundingRequests";
+import ManualFunding from "./pages/admin/wallet/ManualFunding";
+import AutomaticFunding from "./pages/admin/wallet/AutomaticFunding";
 import UserManagement from "./pages/admin/users/UserManagement";
 import ProductsDashboard from "./pages/admin/products/ProductsDashboard";
 import AdminTransactions from "./pages/admin/transactions/AdminTransactions";
@@ -144,12 +145,31 @@ export default function App() {
           }
         />
 
+        {/* Manual and automatic funding are separate destinations. The bare
+            /admin/funding path is kept as a redirect so existing bookmarks and
+            the NotificationBell deep link do not 404. */}
         <Route
           path="/admin/funding"
+          element={<Navigate to="/admin/funding/manual" replace />}
+        />
+
+        <Route
+          path="/admin/funding/manual"
           element={
             <AdminRoute>
               <Shell>
-                <FundingRequests />
+                <ManualFunding />
+              </Shell>
+            </AdminRoute>
+          }
+        />
+
+        <Route
+          path="/admin/funding/automatic"
+          element={
+            <AdminRoute>
+              <Shell>
+                <AutomaticFunding />
               </Shell>
             </AdminRoute>
           }

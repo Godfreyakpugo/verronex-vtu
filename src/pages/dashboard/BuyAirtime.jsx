@@ -353,7 +353,13 @@ export default function BuyAirtime() {
         throw new Error(await extractFunctionErrorMessage(error));
       }
       if (data?.error) {
-        throw new Error(data.error);
+        // refunded:true is set only when refund_purchase confirmed the wallet
+        // credit, so the customer is told the truth either way.
+        throw new Error(
+          data.refunded === true
+            ? `${data.error} Your wallet was refunded.`
+            : data.error,
+        );
       }
       // Unknown provider outcome — wallet stays debited, transaction stays
       // pending. Never reported as a failure (see BuyData for the same rule).

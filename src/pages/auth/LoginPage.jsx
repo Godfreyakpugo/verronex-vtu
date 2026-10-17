@@ -139,7 +139,11 @@ function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.12),transparent_50%),linear-gradient(135deg,#eef2ff_0%,#f5f3ff_30%,#fdf4ff_60%,#ffffff_100%)] px-4 py-12">
-      <SEO title="Login — Verronex VTU" robots="noindex, nofollow" canonical={null} />
+      <SEO
+        title="Login — Verronex VTU"
+        robots="noindex, nofollow"
+        canonical={null}
+      />
       <Toast
         type={toast?.type}
         title={toast?.title}
@@ -267,6 +271,31 @@ function LoginPage() {
                 Create one
               </Link>
             </p>
+
+            <div className="pt-2 text-center">
+              <div className="inline-flex flex-wrap items-center justify-center gap-2 text-[11px] text-slate-500">
+                <Link
+                  to="/terms-of-service"
+                  className="hover:text-fuchsia-600 transition-colors"
+                >
+                  Terms
+                </Link>
+                <span className="text-slate-300">•</span>
+                <Link
+                  to="/privacy-policy"
+                  className="hover:text-fuchsia-600 transition-colors"
+                >
+                  Privacy
+                </Link>
+                <span className="text-slate-300">•</span>
+                <Link
+                  to="/refund-policy"
+                  className="hover:text-fuchsia-600 transition-colors"
+                >
+                  Refunds
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </div>

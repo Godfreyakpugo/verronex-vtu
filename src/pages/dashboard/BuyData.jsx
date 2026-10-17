@@ -437,7 +437,15 @@ export default function BuyData() {
       }
 
       if (data?.error) {
-        throw new Error(data.error);
+        // The edge function sets refunded:true only when refund_purchase
+        // actually confirmed the wallet credit. Without saying so, a customer
+        // whose money came back sees a bare "purchase failed" and may buy
+        // again, double-spending.
+        throw new Error(
+          data.refunded === true
+            ? `${data.error} Your wallet was refunded.`
+            : data.error,
+        );
       }
 
       // Unknown provider outcome (e.g. timeout past 32s): the wallet stays

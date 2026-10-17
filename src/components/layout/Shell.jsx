@@ -5,14 +5,16 @@ import usePendingFundingCount from "../../hooks/usePendingFundingCount";
 
 function Shell({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const pendingFundingCount = usePendingFundingCount();
+  const pendingCounts = usePendingFundingCount();
+  const pendingFundingCount =
+    (pendingCounts?.manual || 0) + (pendingCounts?.automatic || 0);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.12),transparent_50%),linear-gradient(135deg,#eef2ff_0%,#f5f3ff_30%,#fdf4ff_60%,#ffffff_100%)]">
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        pendingCount={pendingFundingCount}
+        pendingCounts={pendingCounts}
       />
 
       <div className="lg:ml-64">

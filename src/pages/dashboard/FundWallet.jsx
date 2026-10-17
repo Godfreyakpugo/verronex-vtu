@@ -10,6 +10,7 @@ import {
   Clock,
   XCircle,
   CheckCircle,
+  ChevronDown,
 } from "lucide-react";
 import supabase from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext";
@@ -46,6 +47,11 @@ export default function FundWallet() {
   const MONNIFY_ENABLED = import.meta.env.VITE_MONNIFY_ENABLED === "true";
 
   const [amount, setAmount] = useState("");
+  // Manual funding keeps its own amount. It used to share `amount` with the
+  // Monnify card, which made typing in one field fill the other and left the
+  // manual form pre-filled with an amount the customer had not transferred.
+  const [manualAmount, setManualAmount] = useState("");
+  const [manualOpen, setManualOpen] = useState(false);
   const [reference, setReference] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -64,6 +70,19 @@ export default function FundWallet() {
     Number.isInteger(parsedAmount) &&
     parsedAmount > 0 &&
     parsedAmount <= MAX_AMOUNT;
+
+  const parsedManualAmount = Number(manualAmount || 0);
+  const manualAmountValid =
+    Number.isFinite(parsedManualAmount) &&
+    Number.isInteger(parsedManualAmount) &&
+    parsedManualAmount > 0 &&
+    parsedManualAmount <= MAX_AMOUNT;
+
+  // A live Monnify account means the customer is already on the automatic path.
+  // Filing a manual request on top of it strands a real payment: the manual
+  // request and the Monnify request are settled independently, so admins end up
+  // crediting one and leaving the other hanging.
+  const manualBlockedByActiveAccount = Boolean(monnifyData);
 
   const fetchRecentRequests = async () => {
     if (!user?.id) {
@@ -158,7 +177,13 @@ export default function FundWallet() {
       );
       return;
     }
-    if (!amountValid) {
+    if (manualBlockedByActiveAccount) {
+      setError(
+        "You already have an automatic funding account waiting for payment. Pay that one, or generate a new account first.",
+      );
+      return;
+    }
+    if (!manualAmountValid) {
       setError("Enter a valid whole Naira amount above zero.");
       return;
     }
@@ -174,7 +199,7 @@ export default function FundWallet() {
         .from("funding_requests")
         .insert({
           user_id: user.id,
-          amount: parsedAmount,
+          amount: parsedManualAmount,
           reference: finalReference,
         })
         .select("id, amount, reference, status, created_at")
@@ -192,11 +217,11 @@ Phone: ${profile.phone}
 
 Email: ${profile.email}
 
-Amount: ₦${parsedAmount.toLocaleString("en-NG")}
+Amount: ₦${parsedManualAmount.toLocaleString("en-NG")}
 
 Reference: ${finalReference || "Not Provided"}
 
-I have submitted a funding request of ₦${parsedAmount.toLocaleString(
+I have submitted a funding request of ₦${parsedManualAmount.toLocaleString(
         "en-NG",
       )} for verification. Please verify my transfer and credit my wallet.
 
@@ -208,7 +233,7 @@ Thank you.`;
       );
 
       setSubmitted(data);
-      setAmount("");
+      setManualAmount("");
       setReference("");
       await fetchRecentRequests();
     } catch (err) {
@@ -292,6 +317,28 @@ Thank you.`;
       badge: "bg-slate-100 text-slate-600",
     };
 
+  // Settled state of the payment account currently on screen, resolved from the
+  // database row for that exact request id — never from the webhook payload or
+  // the local timer. `process_monnify_funding` flips status to 'processed' only
+  // after it has credited the wallet in the same transaction, so that is the
+  // single trustworthy "money landed" signal.
+  //
+  // Everything that is not 'processed' stays in a waiting/review state,
+  // including amount mismatches: both the mismatch branch of
+  // process_monnify_funding and append_funding_verify_mismatch record their
+  // verdict on monnify_status and deliberately leave status = 'pending', so a
+  // mismatch can never be mistaken for a credit here.
+  const monnifyRequest = monnifyData?.fundingRequestId
+    ? recentRequests.find((req) => req.id === monnifyData.fundingRequestId) || null
+    : null;
+
+  const monnifySettled =
+    monnifyRequest?.status === "processed"
+      ? "credited"
+      : monnifyRequest?.status === "rejected"
+        ? "review"
+        : "waiting";
+
   return (
     <div className="max-w-3xl mx-auto space-y-4">
       <SEO title="Fund Wallet — Verronex VTU" robots="noindex, nofollow" canonical={null} />
@@ -321,7 +368,7 @@ Thank you.`;
             </div>
             <div>
               <h2 className="font-bold text-slate-800">Automatic Funding</h2>
-              <p className="text-xs text-slate-500">Instant bank transfer via Monnify (sandbox)</p>
+              <p className="text-xs text-slate-500">Instant bank transfer via Monnify</p>
             </div>
             <span className="ml-auto text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full">
               Recommended
@@ -450,9 +497,47 @@ Thank you.`;
                 <p className="text-[11px] text-slate-400">Payment ref: <span className="font-mono font-semibold">{monnifyData.paymentReference}</span></p>
               </div>
 
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
-                <p className="text-xs font-semibold text-amber-800">Waiting for your transfer — your wallet will be credited automatically after payment is confirmed.</p>
-                <p className="text-[11px] text-amber-600 mt-1">Do not close this page. Keep the account number until transfer succeeds.</p>
+              <div
+                className={`rounded-xl border px-3 py-2.5 ${
+                  monnifySettled === "credited"
+                    ? "border-emerald-200 bg-emerald-50"
+                    : monnifySettled === "review"
+                      ? "border-amber-200 bg-amber-50"
+                      : "border-amber-200 bg-amber-50"
+                }`}
+              >
+                {monnifySettled === "credited" ? (
+                  <>
+                    <p className="text-xs font-semibold text-emerald-800">
+                      Payment confirmed — your wallet has been credited.
+                    </p>
+                    <p className="text-[11px] text-emerald-700 mt-1">
+                      You no longer need to send to this account number.
+                    </p>
+                  </>
+                ) : monnifySettled === "review" ? (
+                  <>
+                    <p className="text-xs font-semibold text-amber-800">
+                      This request was not approved and needs review.
+                    </p>
+                    <p className="text-[11px] text-amber-700 mt-1">
+                      No credit was applied. Please contact support with your
+                      payment reference.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs font-semibold text-amber-800">
+                      Waiting for your transfer — your wallet will be credited
+                      automatically after payment is confirmed.
+                    </p>
+                    <p className="text-[11px] text-amber-600 mt-1">
+                      Do not close this page. Keep the account number until
+                      transfer succeeds. If Monnify reports a mismatch, this
+                      request stays pending and support will review it.
+                    </p>
+                  </>
+                )}
               </div>
 
               <button
@@ -464,7 +549,47 @@ Thank you.`;
             </div>
           )}
         </GlassCard>
-      )}
+)}
+
+      {/* Manual funding — deliberately secondary.
+          Bank transfer is the fallback for customers who cannot or will not use
+          the automatic path. It is verified by a person rather than a webhook,
+          so it is collapsed by default to keep one obvious way to fund. */}
+      <GlassCard className="p-0 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setManualOpen((v) => !v)}
+          aria-expanded={manualOpen}
+          className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-fuchsia-50/60 transition-colors"
+        >
+          <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+            <Building2 className="w-4.5 h-4.5 text-slate-500" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="font-bold text-slate-700 text-sm">
+              Fund manually instead
+            </h2>
+            <p className="text-[11px] text-slate-500">
+              Bank transfer, checked by a person
+            </p>
+          </div>
+          <ChevronDown
+            className={`ml-auto w-5 h-5 text-slate-400 shrink-0 transition-transform ${
+              manualOpen ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+
+        {manualOpen && (
+          <div className="px-4 pb-4 space-y-3">
+            {/* The one thing customers most need to know before choosing this */}
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+              <p className="text-[11px] font-semibold text-amber-800">
+                Needs a manual check, so it is not instant. For urgent top-ups use
+                Automatic Funding above — it credits as soon as Monnify confirms
+                your transfer.
+              </p>
+            </div>
 
       {/* Bank details */}
       <GlassCard className="p-4">
@@ -545,14 +670,14 @@ Thank you.`;
             min="1"
             step="1"
             inputMode="numeric"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            value={manualAmount}
+            onChange={(e) => setManualAmount(e.target.value)}
             placeholder="5,000"
             className="w-full rounded-xl border border-fuchsia-100 bg-fuchsia-50 pl-8 pr-4 py-2.5 font-semibold text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-fuchsia-400"
           />
         </div>
 
-        {!amountValid && amount.trim() !== "" && (
+        {!manualAmountValid && manualAmount.trim() !== "" && (
           <p className="mt-1.5 text-xs font-semibold text-red-500">
             Enter a whole Naira amount above zero (max ₦
             {MAX_AMOUNT.toLocaleString("en-NG")}).
@@ -565,9 +690,9 @@ Thank you.`;
             <button
               key={value}
               type="button"
-              onClick={() => setAmount(String(value))}
+              onClick={() => setManualAmount(String(value))}
               className={`flex-1 min-w-0 whitespace-nowrap text-center rounded-lg border px-0.5 py-1.5 text-[11px] sm:text-sm font-semibold transition-all ${
-                Number(amount) === value
+                Number(manualAmount) === value
                   ? "bg-linear-to-r from-fuchsia-600 to-purple-600 border-transparent text-white shadow"
                   : "bg-white border-fuchsia-200 text-slate-600 hover:border-fuchsia-400"
               }`}
@@ -595,9 +720,18 @@ Thank you.`;
           </div>
         )}
 
+        {/* Explains why the button below is inert, rather than leaving a dead
+            control. */}
+        {manualBlockedByActiveAccount && (
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] font-semibold text-amber-800">
+            You already have an automatic funding account waiting for payment. Pay
+            that one, or use “Generate New Account” first.
+          </div>
+        )}
+
         <button
           onClick={handleFundingRequest}
-          disabled={loading}
+          disabled={loading || manualBlockedByActiveAccount}
           className="mt-4 w-full rounded-xl bg-[linear-gradient(135deg,#d946ef,#7c3aed)] py-3 text-white font-bold flex items-center justify-center gap-2.5 shadow-lg shadow-fuchsia-500/30 hover:brightness-110 transition-all disabled:opacity-50 text-sm sm:text-base"
         >
           {loading ? (
@@ -610,6 +744,9 @@ Thank you.`;
             </>
           )}
         </button>
+      </GlassCard>
+          </div>
+        )}
       </GlassCard>
 
       {/* Confirmation */}

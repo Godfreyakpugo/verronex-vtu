@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Search,
   ShieldCheck,
@@ -9,11 +10,54 @@ import {
   Wallet,
   Check,
   X,
+  ArrowLeftRight,
 } from "lucide-react";
 import supabase from "../../../lib/supabaseClient";
 import GlassCard from "../../../components/ui/GlassCard";
 import { formatNaira, smartDate } from "../../../lib/transactionView";
 import SEO from "../../../components/seo/SEO";
+
+// Shared view behind the two admin destinations.
+//
+// `mode` is fixed by the route, not by a toggle, so the row set is filtered in
+// the query itself rather than split in the browser:
+//   - "manual"    → `payment_reference IS NULL`     (Fund Wallet bank transfer)
+//   - "automatic" → `payment_reference IS NOT NULL`  (init-monnify-funding)
+const MODE_CONFIG = {
+  manual: {
+    title: "Manual Funding",
+    subtitle: "Customer bank transfers submitted for verification",
+    emptyLabel: "manual",
+    canApprove: true,
+    canReject: true,
+  },
+  automatic: {
+    title: "Automatic Funding",
+    subtitle: "Monnify reserved-account payments and their settlement state",
+    emptyLabel: "automatic",
+    // Read-only on purpose.
+    //
+    // Approval is out for the same reason reject is: crediting by hand would
+    // bypass the webhook that verifies the payment against Monnify.
+    //
+    // Reject is out because it is NOT safe here. `process_monnify_funding`
+    // treats any non-pending request as already settled and returns without
+    // crediting (see supabase/sql/monnify_process_funding.sql, the
+    // `v_status <> 'pending'` guard). Rejecting a request whose account is still
+    // open — or whose transfer is merely in flight — would therefore strand a
+    // real payment permanently.
+    //
+    // Rejection is only defensible once we can prove the account expired AND no
+    // payment arrived. No such signal is stored: init-monnify-funding persists
+    // only `transaction_reference`, and returns accountDurationSeconds/expiresAt
+    // to the browser without writing them anywhere. `monnify_status` is null for
+    // both "account still open" and "account expired", so they are
+    // indistinguishable. Until an expiry timestamp is persisted, these rows stay
+    // pending and settle (or go stale) on their own.
+    canApprove: false,
+    canReject: false,
+  },
+};
 
 const STATUS_FILTERS = [
   { key: "", label: "All" },
@@ -27,6 +71,38 @@ const STATUS_META = {
   processed: { label: "Processed", badge: "bg-emerald-100 text-emerald-700" },
   rejected: { label: "Rejected", badge: "bg-red-100 text-red-600" },
 };
+
+// Monnify statuses that mean "Monnify reported a payment, no wallet credit was
+// applied". PAID is the normal success value written inside the same atomic
+// transaction as the credit, so it never needs surfacing here.
+const MONNIFY_ATTENTION = {
+  MISMATCH_PAID: "Amount paid does not match the requested amount",
+  VERIFY_MISMATCH: "Webhook disagreed with Monnify's transaction record",
+};
+
+function needsAttention(row) {
+  if (row.status === "processed") return false;
+  return Boolean(row.monnify_status) && row.monnify_status !== "PAID";
+}
+
+// Plain-language settlement state for the automatic destination. `null` means
+// Monnify has not reported anything for this transaction yet — an abandoned or
+// still-open reserved account, not a failure.
+function monnifyStatusLabel(row) {
+  if (MONNIFY_ATTENTION[row.monnify_status]) return MONNIFY_ATTENTION[row.monnify_status];
+  if (row.monnify_status === "PAID") return "Confirmed by Monnify and credited";
+  return "Awaiting payment — Monnify has not reported this transaction";
+}
+
+function monnifyStatusBadge(row) {
+  if (row.monnify_status === "PAID") {
+    return "bg-emerald-100 text-emerald-700";
+  }
+  if (MONNIFY_ATTENTION[row.monnify_status]) {
+    return "bg-amber-100 text-amber-700";
+  }
+  return "bg-slate-100 text-slate-600";
+}
 
 function initials(name, email) {
   const src = (name || email || "?").trim();
@@ -73,7 +149,10 @@ function UserInfo({ row }) {
   );
 }
 
-export default function FundingRequests() {
+export default function FundingRequests({ mode = "manual" }) {
+  const config = MODE_CONFIG[mode] || MODE_CONFIG.manual;
+  const isAutomatic = mode === "automatic";
+
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -94,15 +173,25 @@ export default function FundingRequests() {
   const [actionError, setActionError] = useState("");
   const [notice, setNotice] = useState("");
 
+  // Server-side discriminator. Keeps each destination to its own rows without
+  // relying on a client-side split, so neither view is starved by the shared
+  // 200-row limit.
+  const applyModeFilter = (query) =>
+    isAutomatic
+      ? query.not("payment_reference", "is", null)
+      : query.is("payment_reference", null);
+
   const fetchRequests = async () => {
     try {
-      const { data, error: err } = await supabase
+      let query = supabase
         .from("funding_requests")
         .select(
-          "id, user_id, amount, reference, status, rejection_reason, processed_at, created_at, profiles!funding_requests_user_id_fkey(full_name, email, username, phone)",
+          "id, user_id, amount, reference, status, rejection_reason, processed_at, created_at, payment_reference, transaction_reference, monnify_status, amount_paid, verified_at, profiles!funding_requests_user_id_fkey(full_name, email, username, phone)",
         )
         .order("created_at", { ascending: false })
         .limit(200);
+
+      const { data, error: err } = await applyModeFilter(query);
 
       if (err) throw err;
       setRows(data || []);
@@ -117,10 +206,12 @@ export default function FundingRequests() {
 
   const fetchPendingCount = async () => {
     try {
-      const { count, error: err } = await supabase
+      let query = supabase
         .from("funding_requests")
         .select("id", { count: "exact", head: true })
         .eq("status", "pending");
+
+      const { count, error: err } = await applyModeFilter(query);
 
       if (err) throw err;
       setPendingCount(count || 0);
@@ -159,7 +250,9 @@ export default function FundingRequests() {
           .toLowerCase();
         return (
           userBits.includes(debouncedSearch) ||
-          (r.reference || "").toLowerCase().includes(debouncedSearch)
+          (r.reference || "").toLowerCase().includes(debouncedSearch) ||
+            (r.payment_reference || "").toLowerCase().includes(debouncedSearch) ||
+            (r.transaction_reference || "").toLowerCase().includes(debouncedSearch)
         );
       });
     }
@@ -167,6 +260,9 @@ export default function FundingRequests() {
   }, [rows, filter, debouncedSearch]);
 
   const openApprove = (row) => {
+    // Manual destination only. Guarded here as well as at the button so the
+    // approve-and-credit path can never be reached from automatic funding.
+    if (!config.canApprove) return;
     setApproveTarget(row);
     setCreditedAmount(row.amount ?? "");
     setApproveRef(row.reference || "");
@@ -174,6 +270,7 @@ export default function FundingRequests() {
   };
 
   const openReject = (row) => {
+    if (!config.canReject) return;
     setRejectTarget(row);
     setRejectReason("");
     setActionError("");
@@ -266,7 +363,7 @@ export default function FundingRequests() {
 
   return (
     <div className="space-y-6">
-      <SEO title="Funding Requests — Verronex VTU" robots="noindex, nofollow" canonical={null} />
+      <SEO title={`${config.title} — Verronex VTU`} robots="noindex, nofollow" canonical={null} />
       {/* Hero header */}
       <div className="p-7 rounded-3xl bg-linear-to-br from-indigo-900 via-purple-800 to-fuchsia-700 shadow-xl shadow-purple-900/20 relative overflow-hidden">
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-fuchsia-500 rounded-full mix-blend-screen filter blur-[80px] opacity-60 pointer-events-none" />
@@ -279,15 +376,41 @@ export default function FundingRequests() {
               Admin Console
             </p>
             <h1 className="text-2xl font-black text-white tracking-tight">
-              Funding Requests
+              {config.title}
             </h1>
+            <p className="text-xs text-purple-200">{config.subtitle}</p>
           </div>
           <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 text-white text-sm font-bold px-4 py-1.5 backdrop-blur">
             <Wallet className="w-4 h-4" />
-            {pendingCount} pending
+            {pendingCount} {config.emptyLabel} pending
           </span>
         </div>
       </div>
+
+      {/* Cross-link to the other funding destination */}
+      <Link
+        to={isAutomatic ? "/admin/funding/manual" : "/admin/funding/automatic"}
+        className="inline-flex items-center gap-2 rounded-2xl border border-fuchsia-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-fuchsia-50"
+      >
+        <ArrowLeftRight className="w-4 h-4 text-fuchsia-600" />
+        Go to {isAutomatic ? "Manual" : "Automatic"} funding
+      </Link>
+
+      {/* Why the automatic destination has no actions */}
+      {!config.canReject && (
+        <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-xs text-indigo-900">
+          <p className="font-bold">These requests settle automatically — read-only.</p>
+          <p className="mt-1 text-indigo-700">
+            Monnify confirms each payment by webhook and credits the wallet on its
+            own. Approve and Reject are unavailable here on purpose: rejecting
+            would take the request out of <span className="font-mono">pending</span>,
+            and the webhook never credits a request that is no longer pending — so
+            a late or in-flight payment would be stranded with no way to recover
+            it. Requests left unpaid simply stay pending until the reserved
+            account expires on Monnify&apos;s side.
+          </p>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative">
@@ -296,7 +419,11 @@ export default function FundingRequests() {
           type="search"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Search by user or reference"
+          placeholder={
+            isAutomatic
+              ? "Search by user, payment ref or Monnify transaction"
+              : "Search by user or reference"
+          }
           className="w-full pl-11 pr-4 py-3 rounded-2xl border-2 border-slate-200 bg-white text-sm outline-none transition-colors focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-100"
         />
       </div>
@@ -348,7 +475,7 @@ export default function FundingRequests() {
             <Wallet className="w-6 h-6 text-slate-400 stroke-[2.5]" />
           </div>
           <p className="text-base font-bold text-slate-700">
-            No funding requests found
+            No {config.emptyLabel} funding requests found
           </p>
           <p className="text-sm text-slate-500 mt-1">
             Try a different status or search combination.
@@ -384,12 +511,14 @@ export default function FundingRequests() {
                     <p className="text-[11px] text-slate-400">
                       Submitted {smartDate(row.created_at)}
                     </p>
-                    <p className="text-[11px] text-slate-400 truncate">
-                      Reference:{" "}
-                      <span className="font-semibold text-slate-600">
-                        {row.reference || "—"}
-                      </span>
-                    </p>
+                    {!isAutomatic && (
+                      <p className="text-[11px] text-slate-400 truncate">
+                        Reference:{" "}
+                        <span className="font-semibold text-slate-600">
+                          {row.reference || "—"}
+                        </span>
+                      </p>
+                    )}
                     {row.status === "rejected" && row.rejection_reason && (
                       <p className="text-[11px] text-red-500 truncate">
                         Reason: {row.rejection_reason}
@@ -397,24 +526,64 @@ export default function FundingRequests() {
                     )}
                   </div>
 
-                  {isPending && (
+                  {/* Monnify settlement state. Only ever populated for the
+                      automatic destination, where every row carries a
+                      payment_reference. A still-pending row with a mismatch
+                      here means Monnify reported money that was not credited —
+                      that needs a human, so it is called out rather than looking
+                      like an ordinary untouched request. */}
+                  {isAutomatic && (
+                    <div className="min-w-0">
+                      <p className="text-[11px] text-slate-400 truncate">
+                        Auto-funding ref:{" "}
+                        <span className="font-mono font-semibold text-slate-600">
+                          {row.payment_reference}
+                        </span>
+                      </p>
+                      <p className="text-[11px] text-slate-400 truncate">
+                        Monnify txn:{" "}
+                        <span className="font-mono font-semibold text-slate-600">
+                          {row.transaction_reference || "—"}
+                        </span>
+                      </p>
+                      <span
+                        className={`mt-1 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${monnifyStatusBadge(row)}`}
+                      >
+                        {monnifyStatusLabel(row)}
+                      </span>
+                      {needsAttention(row) && (
+                        <p className="text-[11px] font-semibold text-amber-600">
+                          {row.amount_paid != null
+                            ? `₦${Number(row.amount_paid).toLocaleString("en-NG")} received but not credited`
+                            : "Money reported by Monnify, wallet not credited"}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Automatic rows are read-only — no approve, no reject. */}
+                  {isPending && (config.canApprove || config.canReject) && (
                     <div className="ml-auto flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => openApprove(row)}
-                        className="flex items-center gap-1.5 rounded-xl bg-linear-to-r from-emerald-600 to-emerald-500 text-white text-xs font-bold px-4 py-2 hover:brightness-110 transition-all"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        Approve
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openReject(row)}
-                        className="flex items-center gap-1.5 rounded-xl bg-red-500 text-white text-xs font-bold px-4 py-2 hover:bg-red-600 transition-all"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                        Reject
-                      </button>
+                      {config.canApprove && (
+                        <button
+                          type="button"
+                          onClick={() => openApprove(row)}
+                          className="flex items-center gap-1.5 rounded-xl bg-linear-to-r from-emerald-600 to-emerald-500 text-white text-xs font-bold px-4 py-2 hover:brightness-110 transition-all"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          Approve
+                        </button>
+                      )}
+                      {config.canReject && (
+                        <button
+                          type="button"
+                          onClick={() => openReject(row)}
+                          className="flex items-center gap-1.5 rounded-xl bg-red-500 text-white text-xs font-bold px-4 py-2 hover:bg-red-600 transition-all"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          Reject
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -424,8 +593,8 @@ export default function FundingRequests() {
         </GlassCard>
       )}
 
-      {/* Approve modal */}
-      {approveTarget && (
+      {/* Approve modal — manual destination only */}
+      {config.canApprove && approveTarget && (
         <div className="fixed inset-0 z-9999 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <GlassCard className="w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
@@ -522,8 +691,8 @@ export default function FundingRequests() {
         </div>
       )}
 
-      {/* Reject modal */}
-      {rejectTarget && (
+      {/* Reject modal — manual destination only */}
+      {config.canReject && rejectTarget && (
         <div className="fixed inset-0 z-9999 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <GlassCard className="w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-5">

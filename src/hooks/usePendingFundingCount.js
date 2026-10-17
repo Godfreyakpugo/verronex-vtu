@@ -3,29 +3,48 @@ import supabase from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 
 /**
- * Admin-only pending funding requests count.
- * - Head-count query (no rows) for performance
+ * Admin-only pending funding request counts, split by funding type.
+ *
+ * The discriminator is `payment_reference`:
+ *   - automatic requests get a non-null `payment_reference` when created by the
+ *     init-monnify-funding edge function
+ *   - manual requests created from Fund Wallet omit it entirely (column default
+ *     NULL), and only ever carry a customer-supplied bank `reference`
+ *
+ * - Head-count queries (no rows) for performance
  * - Polling 30s + realtime + visibility/focus refetch
  * - Only runs for is_admin
  */
 export default function usePendingFundingCount() {
   const { profile } = useAuth();
   const isAdmin = profile?.is_admin === true;
-  const [count, setCount] = useState(0);
+  const [counts, setCounts] = useState({ manual: 0, automatic: 0 });
   const intervalRef = useRef(null);
   const channelRef = useRef(null);
 
   const fetchCount = useCallback(async () => {
     if (!isAdmin) {
-      setCount(0);
+      setCounts({ manual: 0, automatic: 0 });
       return;
     }
     try {
-      const { count: c, error } = await supabase
-        .from("funding_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "pending");
-      if (!error) setCount(c || 0);
+      const [manual, automatic] = await Promise.all([
+        supabase
+          .from("funding_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "pending")
+          .is("payment_reference", null),
+        supabase
+          .from("funding_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "pending")
+          .not("payment_reference", "is", null),
+      ]);
+
+      setCounts({
+        manual: manual.error ? 0 : manual.count || 0,
+        automatic: automatic.error ? 0 : automatic.count || 0,
+      });
     } catch (_e) {
       void _e;
     }
@@ -34,7 +53,7 @@ export default function usePendingFundingCount() {
   useEffect(() => {
     if (!isAdmin) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setCount(0);
+      setCounts({ manual: 0, automatic: 0 });
       return;
     }
 
@@ -86,5 +105,5 @@ export default function usePendingFundingCount() {
     };
   }, [isAdmin, fetchCount]);
 
-  return count;
+  return counts;
 }
