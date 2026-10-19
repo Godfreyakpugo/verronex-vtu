@@ -9,8 +9,9 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import supabase from "../../lib/supabaseClient";
+import { getTransactionPinStatus } from "../../lib/transactionPin";
 import GlassCard from "../../components/ui/GlassCard";
-import ConfirmModal from "../../components/ui/ConfirmModal";
+import TransactionConfirmModal from "../../components/ui/TransactionConfirmModal";
 import Toast from "../../components/ui/Toast";
 import PurchaseSuccessModal from "../../components/ui/PurchaseSuccessModal";
 import SEO from "../../components/seo/SEO";
@@ -138,6 +139,9 @@ export default function BuyAirtime() {
   const [amount, setAmount] = useState("");
 
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pinRequired, setPinRequired] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const [pinErrorCode, setPinErrorCode] = useState(null);
   const [purchasing, setPurchasing] = useState(false);
   const purchaseInFlightRef = useRef(false);
 
@@ -179,6 +183,18 @@ export default function BuyAirtime() {
     return () => {
       ignore = true;
     };
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+    getTransactionPinStatus()
+      .then((status) => {
+        if (!ignore) setPinRequired(status?.hasPin === true);
+      })
+      .catch(() => {
+        // The debit RPC is authoritative and will request a PIN if needed.
+      });
+    return () => { ignore = true; };
   }, []);
 
   function handleRetrySettings() {
@@ -321,9 +337,11 @@ export default function BuyAirtime() {
     }
 
     setConfirmOpen(true);
+    setPinError("");
+    setPinErrorCode(null);
   }
 
-  async function handleConfirmPurchase() {
+  async function handleConfirmPurchase(enteredPin) {
     // Synchronous in-flight latch: `purchasing` state is only committed on the
     // next render, so it cannot by itself stop a second invocation arriving in
     // the same tick. Reduces duplicate submissions only — not a substitute for
@@ -331,9 +349,12 @@ export default function BuyAirtime() {
     if (purchaseInFlightRef.current) return;
     if (!settingsReady || walletUnavailable) return;
 
+    let keepConfirmOpen = false;
     purchaseInFlightRef.current = true;
     setPurchasing(true);
     setToast(null);
+    setPinError("");
+    setPinErrorCode(null);
 
     const normalizedPhone = normalizeNigerianPhone(phoneNumber);
 
@@ -345,6 +366,7 @@ export default function BuyAirtime() {
             network,
             phoneNumber: normalizedPhone,
             amount: parsedAmount,
+            transactionPin: enteredPin,
           },
         },
       );
@@ -353,6 +375,13 @@ export default function BuyAirtime() {
         throw new Error(await extractFunctionErrorMessage(error));
       }
       if (data?.error) {
+        if (data.pinError) {
+          keepConfirmOpen = true;
+          setPinError(data.error);
+          setPinErrorCode(data.code || null);
+          if (data.code === "pin_required") setPinRequired(true);
+          return;
+        }
         // refunded:true is set only when refund_purchase confirmed the wallet
         // credit, so the customer is told the truth either way.
         throw new Error(
@@ -408,6 +437,7 @@ export default function BuyAirtime() {
     } finally {
       purchaseInFlightRef.current = false;
       setPurchasing(false);
+      if (!keepConfirmOpen) setConfirmOpen(false);
     }
   }
 
@@ -713,10 +743,10 @@ export default function BuyAirtime() {
         </div>
       </GlassCard>
 
-      <ConfirmModal
-        open={confirmOpen}
+      {confirmOpen && <TransactionConfirmModal
+        open
         title="Confirm Airtime Purchase"
-        message={[
+        details={[
           `Network: ${networkLabel}`,
           `Phone: ${normalizeNigerianPhone(phoneNumber)}`,
           `Airtime: ${formatNaira(parsedAmount)}`,
@@ -724,12 +754,14 @@ export default function BuyAirtime() {
           "",
           "This amount will be deducted from your wallet.",
         ].join("\n")}
-        confirmText="Confirm & Pay"
-        cancelText="Cancel"
+        pinRequired={pinRequired}
+        pinError={pinError}
+        pinErrorCode={pinErrorCode}
+        onClearPinError={() => { setPinError(""); setPinErrorCode(null); }}
         loading={purchasing}
         onConfirm={handleConfirmPurchase}
         onCancel={() => !purchasing && setConfirmOpen(false)}
-      />
+      />}
 
       <PendingModal pending={pending} onClose={() => setPending(null)} />
 

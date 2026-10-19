@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { Wifi, Phone, Plus, ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { getTransactionPinStatus } from "../../lib/transactionPin";
 import supabase from "../../lib/supabaseClient";
 import GlassCard from "../../components/ui/GlassCard";
 import TransactionRow from "../../components/ui/TransactionRow";
 import TransactionDetailModal from "../../components/ui/TransactionDetailModal";
 import PublicAlertModal from "../../components/ui/PublicAlertModal";
+import TransactionPinReminder from "../../components/ui/TransactionPinReminder";
 import { buildTransactionView } from "../../lib/transactionView";
 import { ROUTES } from "../../routes";
 import SEO from "../../components/seo/SEO";
@@ -35,11 +37,12 @@ const quickActions = [
 const RECENT_LIMIT = 5;
 
 function Dashboard() {
-  const { profile, wallet, refreshWallet } = useAuth();
+  const { user, profile, wallet, refreshWallet } = useAuth();
   const [recent, setRecent] = useState([]);
   const [recentLoading, setRecentLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [publicAlert, setPublicAlert] = useState(null);
+  const [pinReminderUserId, setPinReminderUserId] = useState(null);
 
   const firstName = profile?.full_name?.split(" ")[0] ?? null;
 
@@ -94,6 +97,22 @@ function Dashboard() {
       ignore = true;
     };
   }, []);
+
+  useEffect(() => {
+    let ignore = false;
+    if (!user?.id) return () => { ignore = true; };
+
+    getTransactionPinStatus()
+      .then((status) => {
+        if (!ignore) setPinReminderUserId(status?.reminderDue ? user.id : null);
+      })
+      .catch(() => {
+        // A reminder is optional and must not hold up the dashboard.
+        if (!ignore) setPinReminderUserId(null);
+      });
+
+    return () => { ignore = true; };
+  }, [user?.id]);
 
   const dismissPublicAlert = () => {
     if (publicAlert) {
@@ -240,6 +259,10 @@ function Dashboard() {
       />
 
       <PublicAlertModal alert={publicAlert} onDismiss={dismissPublicAlert} />
+      <TransactionPinReminder
+        open={pinReminderUserId === user?.id}
+        onClose={() => setPinReminderUserId(null)}
+      />
     </div>
   );
 }

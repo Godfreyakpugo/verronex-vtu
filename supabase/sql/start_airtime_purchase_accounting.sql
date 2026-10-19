@@ -1,5 +1,8 @@
 -- ============================================================================
--- start_airtime_purchase (updated to store provider cost in metadata for accounting)
+-- Legacy pre-PIN start_airtime_purchase (updated to store provider cost).
+-- After transaction_pin_security.sql is applied, its conditional ACL block
+-- below keeps this PIN-bypass-capable function ungranted. The active edge flow
+-- calls start_airtime_purchase_with_pin.
 -- ============================================================================
 create or replace function public.start_airtime_purchase(
   p_user_id uuid,
@@ -145,7 +148,15 @@ begin
 end;
 $$;
 
-revoke execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) from public;
-revoke execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) from anon;
-grant execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) to authenticated;
-grant execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) to service_role;
+do $$
+begin
+  if to_regclass('public.transaction_pin_security') is null then
+    execute 'revoke execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) from public';
+    execute 'revoke execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) from anon';
+    execute 'grant execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) to authenticated';
+    execute 'grant execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) to service_role';
+  else
+    execute 'revoke all on function public.start_airtime_purchase(uuid, text, numeric, text, text) from public, anon, authenticated, service_role';
+  end if;
+end;
+$$;

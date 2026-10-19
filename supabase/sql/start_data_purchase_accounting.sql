@@ -3,10 +3,10 @@
 --
 -- SECURITY: now enforces that p_user_id is the calling user (auth.uid()),
 -- mirroring start_airtime_purchase. This function is SECURITY DEFINER with
--- EXECUTE granted to `authenticated`, so without that check any signed-in
--- caller could pass another user's uuid and debit that user's wallet.
--- The purchase edge functions call it with the caller's own JWT (anon key +
--- forwarded Authorization header), so the real flow is unaffected.
+-- EXECUTE granted to `authenticated` only for legacy installations before the
+-- transaction PIN feature. Once transaction_pin_security exists, the ACL block
+-- below revokes every client grant. The active edge function uses the atomic,
+-- service_role-only start_data_purchase_with_pin RPC instead.
 -- ========================================================================
 create or replace function public.start_data_purchase(
   p_user_id uuid,
@@ -129,7 +129,15 @@ begin
 end;
 $$;
 
-revoke execute on function public.start_data_purchase(uuid, uuid, text) from public;
-revoke execute on function public.start_data_purchase(uuid, uuid, text) from anon;
-grant execute on function public.start_data_purchase(uuid, uuid, text) to authenticated;
-grant execute on function public.start_data_purchase(uuid, uuid, text) to service_role;
+do $$
+begin
+  if to_regclass('public.transaction_pin_security') is null then
+    execute 'revoke execute on function public.start_data_purchase(uuid, uuid, text) from public';
+    execute 'revoke execute on function public.start_data_purchase(uuid, uuid, text) from anon';
+    execute 'grant execute on function public.start_data_purchase(uuid, uuid, text) to authenticated';
+    execute 'grant execute on function public.start_data_purchase(uuid, uuid, text) to service_role';
+  else
+    execute 'revoke all on function public.start_data_purchase(uuid, uuid, text) from public, anon, authenticated, service_role';
+  end if;
+end;
+$$;

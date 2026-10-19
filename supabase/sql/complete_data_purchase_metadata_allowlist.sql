@@ -1,6 +1,8 @@
 -- =============================================================================
 -- CHANGE 1 — complete_data_purchase: preserve accounting metadata
--- STATUS: NOT APPLIED. Prepare and apply manually, one statement at a time.
+-- STATUS: A corrected version was applied to the linked production project;
+--         this repository copy now uses JSONB-safe extraction. Compare the
+--         live definition before reapplying.
 -- =============================================================================
 -- WHY
 --   The live public.complete_data_purchase(text, jsonb) ends with:
@@ -51,24 +53,24 @@ set search_path = ''
 as $$
   select jsonb_strip_nulls(
     jsonb_build_object(
-      'status',         nullif(left(coalesce(v.status, ''), 40), ''),
-      'api_response',   nullif(left(coalesce(v.api_response, ''), 500), ''),
+      'status',         nullif(left(coalesce(s.v ->> 'status', ''), 40), ''),
+      'api_response',   nullif(left(coalesce(s.v ->> 'api_response', ''), 500), ''),
       -- Our reference, echoed back by the provider. Useful for reconciliation.
-      'ident',          nullif(left(coalesce(v.ident, ''), 80), ''),
-      'provider_id',    nullif(left(coalesce(v.id, v.topup_id, ''), 80), ''),
-      'plan',           nullif(left(coalesce(v.plan, ''), 80), ''),
-      'plan_name',      nullif(left(coalesce(v.plan_name, ''), 120), ''),
-      'plan_network',   nullif(left(coalesce(v.plan_network, ''), 40), ''),
-      'plan_type',      nullif(left(coalesce(v.plan_type, ''), 60), ''),
-      'network',        nullif(left(coalesce(v.network, ''), 60), ''),
-      'payment_medium', nullif(left(coalesce(v.payment_medium, ''), 40), ''),
-      'duration',       nullif(left(coalesce(v.duration, ''), 40), ''),
+      'ident',          nullif(left(coalesce(s.v ->> 'ident', ''), 80), ''),
+      'provider_id',    nullif(left(coalesce(s.v ->> 'id', s.v ->> 'topup_id', ''), 80), ''),
+      'plan',           nullif(left(coalesce(s.v ->> 'plan', ''), 80), ''),
+      'plan_name',      nullif(left(coalesce(s.v ->> 'plan_name', ''), 120), ''),
+      'plan_network',   nullif(left(coalesce(s.v ->> 'plan_network', ''), 40), ''),
+      'plan_type',      nullif(left(coalesce(s.v ->> 'plan_type', ''), 60), ''),
+      'network',        nullif(left(coalesce(s.v ->> 'network', ''), 60), ''),
+      'payment_medium', nullif(left(coalesce(s.v ->> 'payment_medium', ''), 40), ''),
+      'duration',       nullif(left(coalesce(s.v ->> 'duration', ''), 40), ''),
       'provider_create_date',
-                        nullif(left(coalesce(v.create_date, v.created_at, ''), 60), ''),
+                        nullif(left(coalesce(s.v ->> 'create_date', s.v ->> 'created_at', ''), 60), ''),
       -- Provider-echoed amount, retained as EVIDENCE ONLY.
       -- Semantics are the provider's, not Verronex's: this is NOT our cost and
       -- must never be read as one. Accounting reads metadata.cost_price only.
-      'provider_plan_amount', v.plan_amount
+      'provider_plan_amount', s.v -> 'plan_amount'
     )
   )
 from (

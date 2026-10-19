@@ -3,6 +3,9 @@
 --
 -- Apply these in the Supabase SQL editor (Database > SQL) — the repo has no
 -- migration runner; schema is applied manually to the remote project.
+-- After transaction_pin_security.sql has been applied, this legacy
+-- start_airtime_purchase RPC stays ungranted. The active edge flow uses
+-- start_airtime_purchase_with_pin instead.
 --
 -- Pricing formula (derived from src/pages/admin/products/AirtimeManagement.jsx):
 --   profit per ₦1,000 = 1000 * (admin_discount - user_discount) / 100
@@ -166,10 +169,20 @@ begin
 end;
 $$;
 
-revoke execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) from public;
-revoke execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) from anon;
-grant execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) to authenticated;
-grant execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) to service_role;
+do $$
+begin
+  if to_regclass('public.transaction_pin_security') is null then
+    -- Legacy installation before the PIN feature is rolled out.
+    execute 'revoke execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) from public';
+    execute 'revoke execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) from anon';
+    execute 'grant execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) to authenticated';
+    execute 'grant execute on function public.start_airtime_purchase(uuid, text, numeric, text, text) to service_role';
+  else
+    -- Never restore the old PIN-bypass path after the private PIN schema exists.
+    execute 'revoke all on function public.start_airtime_purchase(uuid, text, numeric, text, text) from public, anon, authenticated, service_role';
+  end if;
+end;
+$$;
 
 -- ---------------------------------------------------------------------------
 -- complete_airtime_purchase

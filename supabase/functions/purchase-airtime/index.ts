@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getPinCandidate, isPinFailureCode } from "../_shared/transactionPin.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -69,6 +70,18 @@ Deno.serve(async (req) => {
       );
     }
 
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!serviceRoleKey) {
+      return Response.json(
+        { error: "Airtime service is temporarily unavailable." },
+        { status: 503, headers: corsHeaders },
+      );
+    }
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      serviceRoleKey,
+    );
+
     if (
       req.headers.get("x-test-provider-failure") === "true" ||
       req.headers.get("x-test-refund-failure") === "true"
@@ -109,19 +122,26 @@ Deno.serve(async (req) => {
 
     const reference = `AIRTIME-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 
-    console.log("[1] Calling start_airtime_purchase", {
+    const candidateVerifier = await getPinCandidate(
+      supabaseAdmin,
+      user.id,
+      body?.transactionPin,
+    );
+
+    console.log("[1] Calling start_airtime_purchase_with_pin", {
       reference,
       network,
       amount,
       phone,
     });
 
-    const { data, error } = await supabase.rpc("start_airtime_purchase", {
+    const { data, error } = await supabaseAdmin.rpc("start_airtime_purchase_with_pin", {
       p_user_id: user.id,
       p_network: network,
       p_amount: amount,
       p_phone: phone,
       p_reference: reference,
+      p_candidate_verifier: candidateVerifier,
     });
 
     if (error) {
@@ -139,6 +159,37 @@ Deno.serve(async (req) => {
     }
 
     const purchase = data[0];
+
+    if (!purchase.ok) {
+      if (isPinFailureCode(purchase.error_code)) {
+        const seconds = purchase.cooldown_until
+          ? Math.max(1, Math.ceil((Date.parse(purchase.cooldown_until) - Date.now()) / 1000))
+          : null;
+        const message = purchase.error_code === "pin_required"
+          ? "Enter your transaction PIN to continue."
+          : purchase.error_code === "pin_invalid"
+          ? "That transaction PIN is incorrect."
+          : purchase.error_code === "pin_already_set"
+          ? "A transaction PIN is already set."
+          : seconds !== null && seconds < 60
+          ? `Too many incorrect attempts. Try again in ${seconds} seconds.`
+          : `Too many incorrect attempts. Try again in ${Math.ceil((seconds ?? 60) / 60)} minutes.`;
+        return Response.json(
+          {
+            pinError: true,
+            code: purchase.error_code,
+            error: message,
+            cooldownUntil: purchase.cooldown_until ?? null,
+          },
+          { headers: corsHeaders },
+        );
+      }
+      return Response.json(
+        { error: "Purchase initialization failed." },
+        { status: 400, headers: corsHeaders },
+      );
+    }
+
     console.log("[2] Wallet debited", purchase);
 
     const token = Deno.env.get("GLADTIDINGS_API_TOKEN");

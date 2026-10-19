@@ -14,8 +14,9 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import supabase from "../../lib/supabaseClient";
+import { getTransactionPinStatus } from "../../lib/transactionPin";
 import GlassCard from "../../components/ui/GlassCard";
-import ConfirmModal from "../../components/ui/ConfirmModal";
+import TransactionConfirmModal from "../../components/ui/TransactionConfirmModal";
 import Toast from "../../components/ui/Toast";
 import PurchaseSuccessModal from "../../components/ui/PurchaseSuccessModal";
 import SEO from "../../components/seo/SEO";
@@ -227,6 +228,9 @@ export default function BuyData() {
   }
 
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pinRequired, setPinRequired] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const [pinErrorCode, setPinErrorCode] = useState(null);
   const [purchasing, setPurchasing] = useState(false);
   // Synchronous in-flight latch. `purchasing` state is only committed on the
   // next render, so it cannot by itself stop a second invocation arriving in
@@ -276,6 +280,19 @@ export default function BuyData() {
     return () => {
       ignore = true;
     };
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+    getTransactionPinStatus()
+      .then((status) => {
+        if (!ignore) setPinRequired(status?.hasPin === true);
+      })
+      .catch(() => {
+        // The debit RPC remains authoritative. If status is unavailable and
+        // this user has a PIN, it returns pin_required and opens the PIN step.
+      });
+    return () => { ignore = true; };
   }, []);
 
   // Exclude non-data plan types (e.g. TALKMORE minute bundles) and drop
@@ -411,15 +428,20 @@ export default function BuyData() {
       return;
     }
     setConfirmOpen(true);
+    setPinError("");
+    setPinErrorCode(null);
   }
 
-  async function handleConfirmPurchase() {
+  async function handleConfirmPurchase(enteredPin) {
     if (!selectedPlan) return;
     if (purchaseInFlightRef.current) return;
 
+    let keepConfirmOpen = false;
     purchaseInFlightRef.current = true;
     setPurchasing(true);
     setToast(null);
+    setPinError("");
+    setPinErrorCode(null);
 
     const normalizedPhone = normalizeNigerianPhone(phoneNumber);
 
@@ -428,6 +450,7 @@ export default function BuyData() {
         body: {
           planId: selectedPlan.id,
           phoneNumber: normalizedPhone,
+          transactionPin: enteredPin,
         },
       });
 
@@ -437,6 +460,13 @@ export default function BuyData() {
       }
 
       if (data?.error) {
+        if (data.pinError) {
+          keepConfirmOpen = true;
+          setPinError(data.error);
+          setPinErrorCode(data.code || null);
+          if (data.code === "pin_required") setPinRequired(true);
+          return;
+        }
         // The edge function sets refunded:true only when refund_purchase
         // actually confirmed the wallet credit. Without saying so, a customer
         // whose money came back sees a bare "purchase failed" and may buy
@@ -516,6 +546,7 @@ export default function BuyData() {
     } finally {
       purchaseInFlightRef.current = false;
       setPurchasing(false);
+      if (!keepConfirmOpen) setConfirmOpen(false);
     }
   }
 
@@ -806,10 +837,10 @@ export default function BuyData() {
         </GlassCard>
       </div>
 
-      <ConfirmModal
-        open={confirmOpen}
+      {confirmOpen && <TransactionConfirmModal
+        open
         title="Confirm Data Purchase"
-        message={
+        details={
           selectedPlan
             ? `Network: ${selectedNetwork}\nPlan: ${
                 selectedPlan.plan_name
@@ -820,12 +851,14 @@ export default function BuyData() {
               )}\n\nThis amount will be deducted from your wallet.`
             : ""
         }
-        confirmText="Confirm & Pay"
-        cancelText="Cancel"
+        pinRequired={pinRequired}
+        pinError={pinError}
+        pinErrorCode={pinErrorCode}
+        onClearPinError={() => { setPinError(""); setPinErrorCode(null); }}
         loading={purchasing}
         onConfirm={handleConfirmPurchase}
         onCancel={() => !purchasing && setConfirmOpen(false)}
-      />
+      />}
 
       <PurchaseSuccessModal
         receipt={successReceipt}

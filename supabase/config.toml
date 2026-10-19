@@ -434,6 +434,16 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/purchase-airtime/index.ts"
 
+[functions.purchase-data]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/purchase-data/index.ts"
+
+[functions.transaction-pin]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/transaction-pin/index.ts"
+
 [functions.delete-user]
 enabled = true
 verify_jwt = false

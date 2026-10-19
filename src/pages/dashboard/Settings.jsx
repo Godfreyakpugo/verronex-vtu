@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Users,
   Lock,
@@ -8,13 +8,20 @@ import {
   Edit,
 } from "lucide-react";
 import supabase from "../../lib/supabaseClient";
+import { getTransactionPinStatus, invokeTransactionPin } from "../../lib/transactionPin";
 import GlassCard from "../../components/ui/GlassCard";
 import SEO from "../../components/seo/SEO";
 
 function SettingsPage() {
   const { user, profile, refreshProfile } = useAuth();
+  const [searchParams] = useSearchParams();
 
-  const [section, setSection] = useState("account");
+  const requestedSection = searchParams.get("section");
+  const [section, setSection] = useState(() =>
+    ["account", "security", "profile"].includes(requestedSection)
+      ? requestedSection
+      : "account",
+  );
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
     full_name: profile?.full_name || "",
@@ -28,9 +35,101 @@ function SettingsPage() {
 
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [pinStatus, setPinStatus] = useState({ loading: true, hasPin: false, error: "" });
+  const [pinBusy, setPinBusy] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const [pinSuccess, setPinSuccess] = useState("");
+  const [pinCurrent, setPinCurrent] = useState("");
+  const [pinNew, setPinNew] = useState("");
+  const [pinConfirm, setPinConfirm] = useState("");
+  const [pinRecovery, setPinRecovery] = useState(false);
+  const [recoveryPassword, setRecoveryPassword] = useState("");
+
+  async function refreshPinStatus() {
+    setPinStatus((current) => ({ ...current, loading: true, error: "" }));
+    try {
+      const status = await getTransactionPinStatus();
+      setPinStatus({ loading: false, hasPin: status?.hasPin === true, error: "" });
+    } catch (statusError) {
+      setPinStatus({
+        loading: false,
+        hasPin: false,
+        error: statusError.message || "PIN status could not be loaded.",
+      });
+    }
+  }
+
+  useEffect(() => {
+    if (!user?.id) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    refreshPinStatus();
+  }, [user?.id]);
+
+  async function handleTransactionPinSave(event) {
+    event.preventDefault();
+    setPinError("");
+    setPinSuccess("");
+
+    if (!/^\d{4}$/.test(pinNew)) {
+      setPinError("Transaction PIN must contain exactly four digits.");
+      setPinCurrent("");
+      setPinNew("");
+      setPinConfirm("");
+      return;
+    }
+    if (pinNew !== pinConfirm) {
+      setPinError("The transaction PINs do not match.");
+      setPinCurrent("");
+      setPinNew("");
+      setPinConfirm("");
+      return;
+    }
+    if (pinStatus.hasPin && !pinRecovery && !/^\d{4}$/.test(pinCurrent)) {
+      setPinError("Enter your current transaction PIN to change it.");
+      return;
+    }
+    if (pinRecovery && (!recoveryPassword || !user?.email)) {
+      setPinError("Enter your account password to verify your identity.");
+      return;
+    }
+
+    setPinBusy(true);
+    try {
+      const action = pinRecovery
+        ? "recover"
+        : pinStatus.hasPin
+        ? "change"
+        : "setup";
+      const result = await invokeTransactionPin({
+        action,
+        currentPin: action === "change" ? pinCurrent : null,
+        newPin: pinNew,
+        accountPassword: action === "recover" ? recoveryPassword : null,
+      });
+
+      if (result?.pinError) throw new Error(result.error || "Could not update transaction PIN.");
+      if (result?.error || !result?.success) {
+        throw new Error(result?.error || "Could not update transaction PIN.");
+      }
+
+      setPinSuccess(pinStatus.hasPin ? "Transaction PIN updated." : "Transaction PIN set up.");
+      setPinRecovery(false);
+      await refreshPinStatus();
+    } catch (err) {
+      setPinError(err.message || "Could not update transaction PIN.");
+    } finally {
+      setPinCurrent("");
+      setPinNew("");
+      setPinConfirm("");
+      setRecoveryPassword("");
+      setPinBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (profile) {
+      // The profile is fetched asynchronously after Settings has first rendered.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm({
         full_name: profile.full_name || "",
         username: profile.username || "",
@@ -282,6 +381,155 @@ function SettingsPage() {
 
         {/* Security Section */}
         {section === "security" && (
+          <>
+          <GlassCard className="p-6 rounded-2xl mb-4">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h2 className="font-bold text-slate-800">Transaction PIN</h2>
+                <p className="text-sm text-slate-500 mt-1">
+                  {pinStatus.loading
+                    ? "Checking PIN status…"
+                    : pinStatus.hasPin
+                    ? "A PIN is required for data and airtime purchases."
+                    : "Optional. Set a four-digit PIN to protect wallet purchases."}
+                </p>
+                {/* The status fetch and the save action report the same service-unavailable
+                    message from the same source. Rendering both leaves the identical
+                    sentence on screen twice, so the status banner yields to the
+                    action error (which is the one carrying role="alert"). */}
+                {pinStatus.error && pinError !== pinStatus.error && (
+                  <p className="text-xs text-amber-700 mt-1">{pinStatus.error}</p>
+                )}
+              </div>
+              <Lock className="w-5 h-5 text-fuchsia-600 shrink-0 mt-1" />
+            </div>
+
+            {pinError && (
+              <p role="alert" className="mb-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {pinError}
+              </p>
+            )}
+            {pinSuccess && (
+              <p role="status" className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                {pinSuccess}
+              </p>
+            )}
+
+            <form onSubmit={handleTransactionPinSave} className="space-y-4">
+              {pinStatus.hasPin && !pinRecovery && (
+                <div>
+                  <label htmlFor="current-transaction-pin" className="block text-sm font-medium text-slate-600 mb-1">
+                    Current transaction PIN
+                  </label>
+                  <input
+                    id="current-transaction-pin"
+                    type="password"
+                    inputMode="numeric"
+                    autoComplete="new-password"
+                    maxLength={4}
+                    value={pinCurrent}
+                    disabled={pinBusy}
+                    onChange={(event) => setPinCurrent(event.target.value.replace(/\D/g, "").slice(0, 4))}
+                    className="w-full rounded-xl border border-fuchsia-100 bg-fuchsia-50/50 px-3 py-2.5 text-sm tracking-[0.4em] focus:border-fuchsia-400 focus:bg-white"
+                  />
+                </div>
+              )}
+
+              {pinRecovery && (
+                <div>
+                  <label htmlFor="transaction-pin-account-password" className="block text-sm font-medium text-slate-600 mb-1">
+                    Account password
+                  </label>
+                  <input
+                    id="transaction-pin-account-password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={recoveryPassword}
+                    disabled={pinBusy}
+                    onChange={(event) => setRecoveryPassword(event.target.value)}
+                    className="w-full rounded-xl border border-fuchsia-100 bg-fuchsia-50/50 px-3 py-2.5 text-sm focus:border-fuchsia-400 focus:bg-white"
+                    placeholder="Verify your account password"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    A recent password sign-in is required to reset a forgotten PIN.
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label htmlFor="new-transaction-pin" className="block text-sm font-medium text-slate-600 mb-1">
+                  {pinStatus.hasPin ? "New transaction PIN" : "Transaction PIN"}
+                </label>
+                <input
+                  id="new-transaction-pin"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                  maxLength={4}
+                  value={pinNew}
+                  disabled={pinBusy}
+                  onChange={(event) => setPinNew(event.target.value.replace(/\D/g, "").slice(0, 4))}
+                  className="w-full rounded-xl border border-fuchsia-100 bg-fuchsia-50/50 px-3 py-2.5 text-sm tracking-[0.4em] focus:border-fuchsia-400 focus:bg-white"
+                  placeholder="Four digits"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="confirm-transaction-pin" className="block text-sm font-medium text-slate-600 mb-1">
+                  Confirm transaction PIN
+                </label>
+                <input
+                  id="confirm-transaction-pin"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                  maxLength={4}
+                  value={pinConfirm}
+                  disabled={pinBusy}
+                  onChange={(event) => setPinConfirm(event.target.value.replace(/\D/g, "").slice(0, 4))}
+                  className="w-full rounded-xl border border-fuchsia-100 bg-fuchsia-50/50 px-3 py-2.5 text-sm tracking-[0.4em] focus:border-fuchsia-400 focus:bg-white"
+                  placeholder="Re-enter four digits"
+                  required
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="submit"
+                  disabled={pinBusy || pinStatus.loading}
+                  className="flex-1 min-w-40 bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 text-white py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-fuchsia-500/20 transition-all disabled:opacity-50"
+                >
+                  {pinBusy
+                    ? "Saving…"
+                    : pinRecovery
+                    ? "Verify & reset PIN"
+                    : pinStatus.hasPin
+                    ? "Change transaction PIN"
+                    : "Set transaction PIN"}
+                </button>
+                {(pinStatus.hasPin || pinStatus.error) && !pinRecovery && (
+                  <button
+                    type="button"
+                    onClick={() => { setPinRecovery(true); setPinError(""); setPinSuccess(""); }}
+                    className="px-3 py-2.5 rounded-xl border border-fuchsia-200 text-sm font-semibold text-fuchsia-700 hover:bg-fuchsia-50"
+                  >
+                    Forgot PIN?
+                  </button>
+                )}
+                {pinRecovery && (
+                  <button
+                    type="button"
+                    onClick={() => { setPinRecovery(false); setPinError(""); setRecoveryPassword(""); }}
+                    className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    Cancel recovery
+                  </button>
+                )}
+              </div>
+            </form>
+          </GlassCard>
+
           <GlassCard className="p-6 rounded-2xl mb-4">
             <h2 className="text font-bold text-slate-800 mb-4">Security</h2>
 
@@ -366,6 +614,7 @@ function SettingsPage() {
               </div>
             )}
           </GlassCard>
+          </>
         )}
 
         {/* Profile Section */}
