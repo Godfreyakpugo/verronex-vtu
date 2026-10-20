@@ -132,7 +132,6 @@ Deno.serve(async (req) => {
       reference,
       network,
       amount,
-      phone,
     });
 
     const { data, error } = await supabaseAdmin.rpc("start_airtime_purchase_with_pin", {
@@ -196,8 +195,8 @@ Deno.serve(async (req) => {
     const baseUrl = Deno.env.get("GLADTIDINGS_BASE_URL");
 
     if (!token || !baseUrl) {
-      const { data: refunded, error: refundError } = await supabase.rpc(
-        "refund_purchase",
+      const { data: refunded, error: refundError } = await supabaseAdmin.rpc(
+        "refund_purchase_server",
         {
           p_reference: reference,
           p_reason: "Gladtidings credentials are not configured",
@@ -293,8 +292,8 @@ Deno.serve(async (req) => {
         (provider.api_response as string) ||
         (provider.message as string) ||
         "Airtime provider rejected the request";
-      const { data: refunded, error: refundError } = await supabase.rpc(
-        "refund_purchase",
+      const { data: refunded, error: refundError } = await supabaseAdmin.rpc(
+        "refund_purchase_server",
         {
           p_reference: reference,
           p_reason: reason,
@@ -339,8 +338,8 @@ Deno.serve(async (req) => {
         provider_response: provider,
       };
 
-      const { error: completeError } = await supabase.rpc(
-        "complete_airtime_purchase",
+      const { error: completeError } = await supabaseAdmin.rpc(
+        "complete_airtime_purchase_server",
         { p_reference: reference, p_metadata: metadata }
       );
 

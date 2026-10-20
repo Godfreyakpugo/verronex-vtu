@@ -132,10 +132,9 @@ Deno.serve(async (req) => {
       },
     );
 
-    // Server-only client. Used exclusively for finalising a purchase, so that
-    // completion cannot be driven by a signed-in customer calling the RPC
-    // directly with their own pending reference. The service role key is read
-    // from the function environment and is never returned to the browser.
+    // Server-only client for the protected debit, purchase completion, and
+    // provider-authorized refund RPCs. The service role key is never returned
+    // to the browser.
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -346,7 +345,9 @@ Deno.serve(async (req) => {
 
       rawBody = await response.text();
 
-      console.log("[8] Gladtidings raw response:", rawBody);
+      // Provider responses may echo the recipient phone or other private data.
+      // Keep the body in memory for status parsing; do not write it to logs.
+      console.log("[8] Gladtidings response received.");
 
       try {
         provider = rawBody ? JSON.parse(rawBody) : null;
@@ -433,8 +434,8 @@ Deno.serve(async (req) => {
     if (providerRejected) {
       console.log("[11] Calling refund_purchase");
 
-      const { data: refunded, error: refundError } = await supabase.rpc(
-        "refund_purchase",
+      const { data: refunded, error: refundError } = await supabaseAdmin.rpc(
+        "refund_purchase_server",
         {
           p_reference: reference,
           p_reason:
