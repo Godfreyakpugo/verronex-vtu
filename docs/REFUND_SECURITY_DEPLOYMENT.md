@@ -31,6 +31,41 @@ Do not reapply `refund_purchase_auth_guard.sql`,
 `complete_airtime_purchase_hardening_OPTIONAL.sql` as written after this
 rollout. They contain older user-session settlement paths.
 
+Steps 1-4 are complete in production and verified: `purchase-data` v52 and
+`purchase-airtime` v44 call `refund_purchase_server` and
+`complete_airtime_purchase_server` with the service-role client, all three old
+settlement RPCs return `false` for `anon`, `authenticated` and `service_role`,
+and both `_server` RPCs return `true` only for `service_role`.
+
+## Privilege escalation via profiles.is_admin (applied and verified)
+
+A read-only audit on 2026-10-20 found a second, independent way to alter a
+purchase without the provider confirming it. `authenticated` holds UPDATE on
+`public.profiles`, and the only UPDATE policy scopes rows with `auth.uid() = id`.
+A signed-in customer can therefore set `is_admin = true` on their own row.
+`public.is_admin()` reads that column, so self-promotion unlocks every admin
+RPC, including `admin_credit_wallet` and `admin_set_transaction_status`.
+
+This is applied in production and verified on 2026-10-20. To re-apply or audit:
+
+1. Apply [`harden_profiles_privileged_columns.sql`](../supabase/sql/harden_profiles_privileged_columns.sql).
+2. Run [`verify_profiles_privileged_columns_READONLY.sql`](../supabase/sql/verify_profiles_privileged_columns_READONLY.sql)
+   and confirm `guard_trigger_present = 1`, `guard_is_security_invoker = 1` and
+   `guard_search_path_pinned = 1`.
+
+The trigger rejects direct client writes to `is_admin`, `user_tier`,
+`verification_status`, `bvn_verified`, `nin_verified` and `deactivated_at`. It is
+SECURITY INVOKER on purpose: inside a SECURITY DEFINER function `current_user`
+is the owner, so an invoker is required to see the real role. SECURITY DEFINER
+admin RPCs, `service_role`, and dashboard maintenance still work because they do
+not execute as `anon` or `authenticated`.
+
+Manual check, not an automated test: as a signed-in test customer, attempt
+`update profiles set is_admin = true where id = auth.uid()` and confirm the
+database raises `Not authorized to change protected profile fields.` Then confirm
+a normal profile update still succeeds and an admin can still change a user tier
+through `admin_update_user_tier`.
+
 The Edge Functions still refund only after a provider rejection or missing
 provider configuration. Pending purchases with an unknown provider outcome stay
 pending and are not automatically refunded.
