@@ -17,6 +17,11 @@ import { useAuth } from "../../context/AuthContext";
 import GlassCard from "../../components/ui/GlassCard";
 import { formatNaira, smartDate } from "../../lib/transactionView";
 import SEO from "../../components/seo/SEO";
+import {
+  getFallbackManualFundingSettings,
+  MANUAL_FUNDING_SETTINGS_COLUMNS,
+  mapManualFundingSettings,
+} from "../../lib/manualFundingSettings";
 
 const QUICK_AMOUNTS = [500, 1000, 2000, 5000, 10000];
 const MAX_AMOUNT = 5000000;
@@ -40,11 +45,19 @@ function RequestStatusIcon({ status }) {
 export default function FundWallet() {
   const { user, profile, refreshWallet } = useAuth();
 
-  const BANK_NAME = import.meta.env.VITE_BANK_NAME;
-  const ACCOUNT_NAME = import.meta.env.VITE_ACCOUNT_NAME;
-  const ACCOUNT_NUMBER = import.meta.env.VITE_ACCOUNT_NUMBER;
-  const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER;
   const MONNIFY_ENABLED = import.meta.env.VITE_MONNIFY_ENABLED === "true";
+
+  const [manualFundingSettings, setManualFundingSettings] = useState(
+    getFallbackManualFundingSettings,
+  );
+  const [manualSettingsLoading, setManualSettingsLoading] = useState(true);
+  const bankName = manualFundingSettings.bank_name;
+  const accountName = manualFundingSettings.account_name;
+  const accountNumber = manualFundingSettings.account_number;
+  const whatsappNumber = manualFundingSettings.whatsapp_number;
+  const manualFundingAvailable = Boolean(
+    bankName.trim() && accountName.trim() && accountNumber.trim(),
+  );
 
   const [amount, setAmount] = useState("");
   // Manual funding keeps its own amount. It used to share `amount` with the
@@ -63,6 +76,37 @@ export default function FundWallet() {
   const [monnifyData, setMonnifyData] = useState(null);
   const [monnifyError, setMonnifyError] = useState("");
   const [monnifyCopied, setMonnifyCopied] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadManualFundingSettings() {
+      try {
+        const { data, error: settingsError } = await supabase
+          .from("manual_funding_settings")
+          .select(MANUAL_FUNDING_SETTINGS_COLUMNS)
+          .eq("id", 1)
+          .maybeSingle();
+
+        if (settingsError) throw settingsError;
+        if (cancelled) return;
+
+        if (data?.configured) {
+          setManualFundingSettings(mapManualFundingSettings(data));
+        }
+      } catch (settingsError) {
+        // Until the settings table is installed, retain the build-time values.
+        console.warn("Could not load saved manual funding settings:", settingsError);
+      } finally {
+        if (!cancelled) setManualSettingsLoading(false);
+      }
+    }
+
+    loadManualFundingSettings();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const parsedAmount = Number(amount || 0);
   const amountValid =
@@ -153,8 +197,9 @@ export default function FundWallet() {
   }, [user?.id]);
 
   async function copyAccount() {
+    if (!accountNumber) return;
     try {
-      await navigator.clipboard.writeText(ACCOUNT_NUMBER);
+      await navigator.clipboard.writeText(accountNumber);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -227,10 +272,12 @@ I have submitted a funding request of ₦${parsedManualAmount.toLocaleString(
 
 Thank you.`;
 
-      window.open(
-        `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`,
-        "_blank",
-      );
+      if (whatsappNumber) {
+        window.open(
+          `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`,
+          "_blank",
+        );
+      }
 
       setSubmitted(data);
       setManualAmount("");
@@ -591,63 +638,87 @@ Thank you.`;
               </p>
             </div>
 
-      {/* Bank details */}
-      <GlassCard className="p-4">
-        <div className="flex items-center gap-2.5 mb-3">
-          <div className="w-9 h-9 rounded-xl bg-fuchsia-100 flex items-center justify-center shrink-0">
-            <Building2 className="w-4.5 h-4.5 text-fuchsia-600" />
+      {manualSettingsLoading ? (
+        <GlassCard className="p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading bank transfer details...
           </div>
-          <div>
-            <h2 className="font-bold text-slate-800">Bank Transfer</h2>
-            <p className="text-xs text-slate-500">
-              Make a transfer using your banking app.
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-2.5">
-          <div className="flex items-baseline justify-between gap-3">
-            <p className="text-[11px] font-bold uppercase text-slate-400 shrink-0">
-              Bank
-            </p>
-            <p className="text-sm font-semibold text-right">{BANK_NAME}</p>
-          </div>
-
-          <div className="flex items-baseline justify-between gap-3">
-            <p className="text-[11px] font-bold uppercase text-slate-400 shrink-0">
-              Account Name
-            </p>
-            <p className="text-sm font-semibold text-right">{ACCOUNT_NAME}</p>
-          </div>
-
-          <div>
-            <p className="text-[11px] font-bold uppercase text-slate-400">
-              Account Number
-            </p>
-            <div className="flex items-center justify-between rounded-xl border border-fuchsia-100 bg-fuchsia-50 px-3 py-2">
-              <span className="text-base sm:text-lg font-black tracking-[0.15em]">
-                {ACCOUNT_NUMBER}
-              </span>
-              <button
-                onClick={copyAccount}
-                className="flex items-center gap-1.5 rounded-lg bg-fuchsia-600 px-3 py-1.5 text-xs text-white font-semibold hover:bg-fuchsia-700 transition-colors"
-              >
-                {copied ? (
-                  <>
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    Copy
-                  </>
-                )}
-              </button>
+        </GlassCard>
+      ) : manualFundingAvailable ? (
+        <GlassCard className="p-4">
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="w-9 h-9 rounded-xl bg-fuchsia-100 flex items-center justify-center shrink-0">
+              <Building2 className="w-4.5 h-4.5 text-fuchsia-600" />
+            </div>
+            <div>
+              <h2 className="font-bold text-slate-800">Bank Transfer</h2>
+              <p className="text-xs text-slate-500">
+                Make a transfer using your banking app.
+              </p>
             </div>
           </div>
+
+          <div className="space-y-2.5">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-[11px] font-bold uppercase text-slate-400 shrink-0">
+                Bank
+              </p>
+              <p className="text-sm font-semibold text-right">{bankName}</p>
+            </div>
+
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-[11px] font-bold uppercase text-slate-400 shrink-0">
+                Account Name
+              </p>
+              <p className="text-sm font-semibold text-right">{accountName}</p>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-bold uppercase text-slate-400">
+                Account Number
+              </p>
+              <div className="flex items-center justify-between rounded-xl border border-fuchsia-100 bg-fuchsia-50 px-3 py-2">
+                <span className="text-base sm:text-lg font-black tracking-[0.15em]">
+                  {accountNumber}
+                </span>
+                <button
+                  type="button"
+                  onClick={copyAccount}
+                  className="flex items-center gap-1.5 rounded-lg bg-fuchsia-600 px-3 py-1.5 text-xs text-white font-semibold hover:bg-fuchsia-700 transition-colors"
+                >
+                  {copied ? (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      Copy
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {manualFundingSettings.payment_instructions && (
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 px-3 py-2.5">
+                <p className="text-[11px] font-bold uppercase text-indigo-500">
+                  Transfer instructions
+                </p>
+                <p className="mt-1 whitespace-pre-line text-xs font-medium text-slate-700">
+                  {manualFundingSettings.payment_instructions}
+                </p>
+              </div>
+            )}
+          </div>
+        </GlassCard>
+      ) : (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-800">
+          Manual bank transfer details are not available right now. Please use Automatic Funding or contact support.
         </div>
-      </GlassCard>
+      )}
 
       {/* Funding form */}
       <GlassCard className="p-4">
@@ -731,7 +802,12 @@ Thank you.`;
 
         <button
           onClick={handleFundingRequest}
-          disabled={loading || manualBlockedByActiveAccount}
+          disabled={
+            loading ||
+            manualSettingsLoading ||
+            !manualFundingAvailable ||
+            manualBlockedByActiveAccount
+          }
           className="mt-4 w-full rounded-xl bg-[linear-gradient(135deg,#d946ef,#7c3aed)] py-3 text-white font-bold flex items-center justify-center gap-2.5 shadow-lg shadow-fuchsia-500/30 hover:brightness-110 transition-all disabled:opacity-50 text-sm sm:text-base"
         >
           {loading ? (
