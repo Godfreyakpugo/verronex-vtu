@@ -11,6 +11,7 @@ import {
   XCircle,
   CheckCircle,
   ChevronDown,
+  ShieldCheck,
 } from "lucide-react";
 import supabase from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext";
@@ -76,6 +77,14 @@ export default function FundWallet() {
   const [monnifyData, setMonnifyData] = useState(null);
   const [monnifyError, setMonnifyError] = useState("");
   const [monnifyCopied, setMonnifyCopied] = useState(false);
+  const [reservedAccount, setReservedAccount] = useState(null);
+  const [reservedAccountLoading, setReservedAccountLoading] = useState(true);
+  const [reservedAccountCreating, setReservedAccountCreating] = useState(false);
+  const [reservedAccountError, setReservedAccountError] = useState("");
+  const [reservedIdentityType, setReservedIdentityType] = useState("BVN");
+  const [reservedIdentityNumber, setReservedIdentityNumber] = useState("");
+  const [reservedIdentityConsent, setReservedIdentityConsent] = useState(false);
+  const [reservedAccountCopied, setReservedAccountCopied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -107,6 +116,42 @@ export default function FundWallet() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadReservedAccount() {
+      if (!user?.id || !MONNIFY_ENABLED) {
+        setReservedAccountLoading(false);
+        setReservedAccount(null);
+        return;
+      }
+
+      setReservedAccountLoading(true);
+      try {
+        const { data, error: accountError } = await supabase
+          .from("monnify_reserved_accounts")
+          .select("account_reference, reservation_reference, account_name, account_number, bank_code, bank_name, status, kyc_type, consented_at")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (accountError) throw accountError;
+        if (!cancelled) setReservedAccount(data || null);
+      } catch (accountError) {
+        // Keep the one-time Monnify funding flow available if this feature's
+        // schema has not been applied to the connected Supabase project yet.
+        console.warn("Could not load Monnify reserved account:", accountError);
+        if (!cancelled) setReservedAccount(null);
+      } finally {
+        if (!cancelled) setReservedAccountLoading(false);
+      }
+    }
+
+    loadReservedAccount();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, MONNIFY_ENABLED]);
 
   const parsedAmount = Number(amount || 0);
   const amountValid =
@@ -179,6 +224,16 @@ export default function FundWallet() {
           fetchRecentRequests();
           refreshWallet();
         },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "wallets",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => refreshWallet(),
       )
       .subscribe();
 
@@ -302,6 +357,71 @@ Thank you.`;
     }
   }
 
+  async function copyReservedAccount() {
+    if (!reservedAccount?.account_number) return;
+    try {
+      await navigator.clipboard.writeText(reservedAccount.account_number);
+      setReservedAccountCopied(true);
+      setTimeout(() => setReservedAccountCopied(false), 2000);
+    } catch {
+      // clipboard unavailable
+    }
+  }
+
+  async function handleCreateReservedAccount() {
+    const identityNumber = reservedIdentityNumber.replace(/\s/g, "");
+    if (!/^\d{11}$/.test(identityNumber)) {
+      setReservedAccountError(`${reservedIdentityType} must contain 11 digits.`);
+      return;
+    }
+    if (!reservedIdentityConsent) {
+      setReservedAccountError("Please consent before sending your identity number to Monnify.");
+      return;
+    }
+    if (reservedAccountCreating) return;
+
+    setReservedAccountError("");
+    setReservedAccountCreating(true);
+    try {
+      const { data, error: functionError } = await supabase.functions.invoke(
+        "create-monnify-reserved-account",
+        {
+          body: {
+            identityType: reservedIdentityType,
+            identityNumber,
+            consentToProcess: true,
+          },
+        },
+      );
+
+      if (functionError) {
+        let message = functionError.message || "Could not create your permanent account.";
+        if (functionError.context && typeof functionError.context.json === "function") {
+          try {
+            const responseBody = await functionError.context.json();
+            if (responseBody?.error) message = responseBody.error;
+          } catch {
+            // Keep the function error message when no JSON response is present.
+          }
+        }
+        throw new Error(message);
+      }
+      if (!data?.success || !data?.account) {
+        throw new Error(data?.error || "Could not create your permanent account.");
+      }
+
+      setReservedAccount(data.account);
+      setReservedIdentityNumber("");
+      setReservedIdentityConsent(false);
+    } catch (createError) {
+      setReservedAccountError(createError.message || "Could not create your permanent account. Please try again.");
+    } finally {
+      setReservedIdentityNumber("");
+      setReservedIdentityConsent(false);
+      setReservedAccountCreating(false);
+    }
+  }
+
   async function handleMonnifyFunding() {
     if (!user) {
       setMonnifyError(
@@ -407,6 +527,126 @@ Thank you.`;
       </div>
 
       {/* Monnify Automatic Funding (Feature Flag) */}
+      {MONNIFY_ENABLED && (
+        <GlassCard className="p-4 border-indigo-200">
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-5 h-5 text-indigo-600" />
+            </div>
+            <div>
+              <h2 className="font-bold text-slate-800">Permanent funding account</h2>
+              <p className="text-xs text-slate-500">A dedicated account linked to your wallet</p>
+            </div>
+            <span className="ml-auto text-[10px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">
+              Monnify
+            </span>
+          </div>
+
+          {reservedAccountLoading ? (
+            <div className="flex items-center gap-2 py-2 text-sm font-semibold text-slate-500">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Checking your account...
+            </div>
+          ) : reservedAccount?.status === "active" && reservedAccount.account_number ? (
+            <div className="space-y-3">
+              <p className="text-xs text-slate-600">
+                Transfer any amount to this account. Your wallet will be credited automatically after Monnify confirms the payment.
+              </p>
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 p-3 space-y-2.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-[11px] font-bold uppercase text-slate-400">Bank</span>
+                  <span className="text-sm font-semibold text-right text-slate-800">{reservedAccount.bank_name || "—"}</span>
+                </div>
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-[11px] font-bold uppercase text-slate-400">Account Name</span>
+                  <span className="text-sm font-semibold text-right text-slate-800">{reservedAccount.account_name || "—"}</span>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase text-slate-400">Account Number</p>
+                  <div className="mt-1 flex items-center justify-between gap-2 rounded-xl border border-indigo-200 bg-white px-3 py-2.5">
+                    <span className="text-base sm:text-lg font-black tracking-[0.15em] text-slate-900">{reservedAccount.account_number}</span>
+                    <button
+                      type="button"
+                      onClick={copyReservedAccount}
+                      className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs text-white font-semibold hover:bg-indigo-700 transition-colors"
+                    >
+                      {reservedAccountCopied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      {reservedAccountCopied ? "Copied" : "Copy"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-xs text-slate-600">
+                Create a one-time permanent bank account for your wallet. Monnify requires your BVN or NIN to reserve it.
+              </p>
+              {reservedAccount?.status && reservedAccount.status !== "active" && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-800">
+                  Your account setup may still be processing. Retry below to recover its status.
+                </div>
+              )}
+              {reservedAccountError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-600">
+                  {reservedAccountError}
+                </div>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-[130px_1fr] gap-2">
+                <label className="text-xs font-bold text-slate-700">
+                  ID type
+                  <select
+                    value={reservedIdentityType}
+                    onChange={(event) => {
+                      setReservedIdentityType(event.target.value);
+                      setReservedIdentityConsent(false);
+                    }}
+                    className="mt-1.5 w-full rounded-xl border border-indigo-100 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  >
+                    <option value="BVN">BVN</option>
+                    <option value="NIN">NIN</option>
+                  </select>
+                </label>
+                <label className="text-xs font-bold text-slate-700">
+                  {reservedIdentityType} (11 digits)
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={11}
+                    value={reservedIdentityNumber}
+                    onChange={(event) => {
+                      setReservedIdentityNumber(event.target.value.replace(/\D/g, "").slice(0, 11));
+                      setReservedIdentityConsent(false);
+                    }}
+                    placeholder={`Enter your ${reservedIdentityType}`}
+                    className="mt-1.5 w-full rounded-xl border border-indigo-100 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                </label>
+              </div>
+              <label className="flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[11px] leading-relaxed text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={reservedIdentityConsent}
+                  onChange={(event) => setReservedIdentityConsent(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-600"
+                />
+                <span>I consent to Verronex sending this {reservedIdentityType} to Monnify to create my permanent account. Verronex does not save the ID number in its database.</span>
+              </label>
+              <button
+                type="button"
+                onClick={handleCreateReservedAccount}
+                disabled={reservedAccountCreating || !reservedIdentityConsent || reservedIdentityNumber.length !== 11}
+                className="w-full rounded-xl bg-[linear-gradient(135deg,#4f46e5,#9333ea)] py-3 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 hover:brightness-110 transition-all disabled:opacity-50 text-sm"
+              >
+                {reservedAccountCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Building2 className="w-4 h-4" />}
+                {reservedAccountCreating ? "Creating permanent account..." : reservedAccount?.status ? "Check account status" : "Create permanent account"}
+              </button>
+            </div>
+          )}
+        </GlassCard>
+      )}
+
       {MONNIFY_ENABLED && (
         <GlassCard className="p-4 border-fuchsia-200">
           <div className="flex items-center gap-2.5 mb-3">

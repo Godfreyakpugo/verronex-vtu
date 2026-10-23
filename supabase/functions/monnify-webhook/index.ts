@@ -47,7 +47,7 @@ function resolveMonnifyEnv(): { mode: "sandbox" | "live"; baseUrl: string } | nu
 }
 
 type VerifyResult =
-  | { ok: true; amountPaid: number }
+  | { ok: true; amountPaid: number; productType?: string; productReference?: string }
   | { ok: false; reason: string }
   | { transient: true };
 
@@ -72,6 +72,30 @@ type VerifyMismatchDatabase = {
           transaction_reference: string;
           payment_reference: string;
           event_type: string;
+          payload: Record<string, unknown>;
+          created_at?: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      monnify_reserved_account_mismatches: {
+        Row: {
+          transaction_reference: string;
+          account_reference: string;
+          payment_reference: string;
+          webhook_amount: number;
+          verified_amount: number | null;
+          reason: string;
+          payload: Record<string, unknown>;
+          created_at?: string;
+        };
+        Insert: {
+          transaction_reference: string;
+          account_reference: string;
+          payment_reference: string;
+          webhook_amount: number;
+          verified_amount: number | null;
+          reason: string;
           payload: Record<string, unknown>;
           created_at?: string;
         };
@@ -115,6 +139,24 @@ type VerifyMismatchDatabase = {
           mismatch?: boolean;
           code?: string;
           error?: string;
+          new_balance?: number;
+        };
+      };
+      process_monnify_reserved_account_payment: {
+        Args: {
+          p_account_reference: string;
+          p_payment_reference: string;
+          p_transaction_reference: string;
+          p_amount_paid: number;
+          p_event_type: string;
+          p_payload: Record<string, unknown>;
+        };
+        Returns: {
+          success?: boolean;
+          credited?: boolean;
+          duplicate?: boolean;
+          orphan?: boolean;
+          code?: string;
           new_balance?: number;
         };
       };
@@ -181,6 +223,11 @@ async function verifyMonnifyTransaction(
     const vPayRef = String(v.paymentReference ?? v.payment_reference ?? "");
     const vTrxRef = String(v.transactionReference ?? v.transaction_reference ?? "");
     const vCurrency = String(v.currencyCode ?? v.currency ?? "");
+    const verifiedProduct = v.product && typeof v.product === "object"
+      ? v.product as Record<string, unknown>
+      : null;
+    const verifiedProductType = String(verifiedProduct?.type || "").trim().toUpperCase();
+    const verifiedProductReference = String(verifiedProduct?.reference || "").trim();
     // amountPaid only: settlementAmount/totalPayable/amount carry different fee
     // semantics and must never substitute for what the customer actually paid.
     const vAmount = toFiniteAmount(v.amountPaid ?? v.amount_paid);
@@ -223,7 +270,12 @@ async function verifyMonnifyTransaction(
       // Cannot confirm what Monnify actually collected — fail closed, retryable.
       return { transient: true };
     }
-    return { ok: true, amountPaid: vAmount };
+    return {
+      ok: true,
+      amountPaid: vAmount,
+      productType: verifiedProductType || undefined,
+      productReference: verifiedProductReference || undefined,
+    };
   } catch {
     return { transient: true };
   }
@@ -266,6 +318,44 @@ async function auditVerifyMismatch(
 
   if (!result?.success) {
     console.error("[monnify-webhook] verify-mismatch audit rejected", { code: result?.code });
+    return false;
+  }
+  return true;
+}
+
+async function auditReservedVerifyMismatch(
+  supabaseAdmin: AdminClient,
+  opts: {
+    accountReference: string;
+    paymentReference: string;
+    transactionReference: string;
+    webhookAmount: number;
+    verifiedAmount: number | null;
+    reason: string;
+  },
+): Promise<boolean> {
+  const { error } = await supabaseAdmin
+    .from("monnify_reserved_account_mismatches")
+    .upsert(
+      {
+        account_reference: opts.accountReference || "missing",
+        payment_reference: opts.paymentReference,
+        transaction_reference: opts.transactionReference,
+        webhook_amount: opts.webhookAmount,
+        verified_amount: opts.verifiedAmount,
+        reason: opts.reason,
+        payload: {
+          accountReference: opts.accountReference,
+          paymentReference: opts.paymentReference,
+          transactionReference: opts.transactionReference,
+          webhookAmount: opts.webhookAmount,
+          verifiedAmount: opts.verifiedAmount,
+        },
+      },
+      { onConflict: "transaction_reference", ignoreDuplicates: true },
+    );
+  if (error) {
+    console.error("[monnify-webhook] reserved-account mismatch audit failed", error.message);
     return false;
   }
   return true;
@@ -382,6 +472,11 @@ Deno.serve(async (req) => {
 
   // Extract fields — support both eventData nested and top-level for robustness
   const data = (eventData || body) as Record<string, unknown>;
+  const product = data.product && typeof data.product === "object"
+    ? data.product as Record<string, unknown>
+    : null;
+  const productType = String(product?.type || "").toUpperCase();
+  const reservedAccountReference = String(product?.reference || "").trim();
   const paymentReference = (data.paymentReference as string) || (data.payment_reference as string) || "";
   const transactionReference = (data.transactionReference as string) || (data.transaction_reference as string) || "";
   const paymentStatus = (data.paymentStatus as string) || (data.payment_status as string) || "";
@@ -431,13 +526,19 @@ Deno.serve(async (req) => {
     // Definitive contradiction — retrying cannot fix it. Persist a durable
     // audit trail, then acknowledge without crediting so poison payloads
     // cannot retry forever. Audit failure is retryable (evidence first).
-    const audited = await auditVerifyMismatch(supabaseAdmin, {
+    const mismatch = {
       paymentReference,
       transactionReference,
       webhookAmount: amountPaid,
-      verifiedAmount: null,
+      verifiedAmount: null as number | null,
       reason: verified.reason,
-    });
+    };
+    const audited = productType === "RESERVED_ACCOUNT"
+      ? await auditReservedVerifyMismatch(supabaseAdmin, {
+        ...mismatch,
+        accountReference: reservedAccountReference,
+      })
+      : await auditVerifyMismatch(supabaseAdmin, mismatch);
     if (!audited) {
       console.error("[monnify-webhook] verify-mismatch audit write failed", { paymentReference });
       return Response.json({ error: "Audit unavailable" }, { status: 500, headers: corsHeaders });
@@ -445,22 +546,124 @@ Deno.serve(async (req) => {
     console.warn("[monnify-webhook] verify-transaction mismatch, ignoring", { paymentReference, reason: verified.reason });
     return Response.json({ received: true, ignored: true, reason: verified.reason }, { headers: corsHeaders });
   }
+  if (productType === "RESERVED_ACCOUNT") {
+    const verifiedProductType = verified.productType || "";
+    const verifiedProductReference = verified.productReference || "";
+    if (!verifiedProductType || !verifiedProductReference) {
+      console.error("[monnify-webhook] verified transaction omitted reserved-account details", { transactionReference });
+      return Response.json({ error: "Verification details unavailable" }, { status: 500, headers: corsHeaders });
+    }
+    if (verifiedProductType !== "RESERVED_ACCOUNT" || verifiedProductReference !== reservedAccountReference) {
+      const audited = await auditReservedVerifyMismatch(supabaseAdmin, {
+        accountReference: reservedAccountReference,
+        paymentReference,
+        transactionReference,
+        webhookAmount: amountPaid,
+        verifiedAmount: verified.amountPaid,
+        reason: "Verified reserved-account product reference mismatch",
+      });
+      if (!audited) {
+        return Response.json({ error: "Audit unavailable" }, { status: 500, headers: corsHeaders });
+      }
+      console.warn("[monnify-webhook] reserved-account product reference mismatch", { transactionReference });
+      return Response.json({ received: true, ignored: true, reason: "Reserved-account reference mismatch" }, { headers: corsHeaders });
+    }
+  }
   if (verified.amountPaid !== amountPaid) {
     // Verified collection differs from the webhook claim — audit durably,
     // never credit. Audit failure is retryable.
-    const audited = await auditVerifyMismatch(supabaseAdmin, {
+    const mismatch = {
       paymentReference,
       transactionReference,
       webhookAmount: amountPaid,
       verifiedAmount: verified.amountPaid,
       reason: "Verified amount mismatch",
-    });
+    };
+    const audited = productType === "RESERVED_ACCOUNT"
+      ? await auditReservedVerifyMismatch(supabaseAdmin, {
+        ...mismatch,
+        accountReference: reservedAccountReference,
+      })
+      : await auditVerifyMismatch(supabaseAdmin, mismatch);
     if (!audited) {
       console.error("[monnify-webhook] verify-mismatch audit write failed", { paymentReference });
       return Response.json({ error: "Audit unavailable" }, { status: 500, headers: corsHeaders });
     }
     console.warn("[monnify-webhook] verified amount differs from webhook amount, ignoring", { paymentReference });
     return Response.json({ received: true, ignored: true, reason: "Verified amount mismatch" }, { headers: corsHeaders });
+  }
+
+  // Customer Reserved Account events identify the destination account through
+  // product.reference. The DB RPC resolves that reference to its owner and
+  // credits the provider-verified amount atomically, without a pending request.
+  if (productType === "RESERVED_ACCOUNT") {
+    const accountReference = reservedAccountReference;
+    if (!accountReference) {
+      console.warn("[monnify-webhook] reserved-account event missing product reference", { transactionReference });
+      return Response.json({ error: "Missing reserved account reference" }, { status: 400, headers: corsHeaders });
+    }
+
+    // Keep only reconciliation fields in the permanent-account event log.
+    // The full webhook can contain payer identity and source-account details.
+    const reservedPayload = {
+      eventType: eventType || "SUCCESSFUL_TRANSACTION",
+      accountReference,
+      paymentReference,
+      transactionReference,
+      amountPaid,
+      currency: currency || "NGN",
+      paymentStatus: normalizedStatus,
+      productType,
+    };
+    const { data: reservedResult, error: reservedRpcError } = await supabaseAdmin.rpc(
+      "process_monnify_reserved_account_payment",
+      {
+        p_account_reference: accountReference,
+        p_payment_reference: paymentReference,
+        p_transaction_reference: transactionReference,
+        p_amount_paid: verified.amountPaid,
+        p_event_type: eventType || "SUCCESSFUL_TRANSACTION",
+        p_payload: reservedPayload,
+      },
+    );
+
+    if (reservedRpcError) {
+      console.error("[monnify-webhook] reserved-account processing failed", reservedRpcError.message);
+      return Response.json({ error: "Failed to process reserved-account funding" }, { status: 500, headers: corsHeaders });
+    }
+
+    if (reservedResult?.orphan) {
+      const { error: orphanLogError } = await supabaseAdmin
+        .from("monnify_events")
+        .upsert(
+          {
+            transaction_reference: transactionReference,
+            payment_reference: paymentReference,
+            event_type: `ORPHAN_RESERVED_ACCOUNT_${eventType || "SUCCESSFUL_TRANSACTION"}`,
+            payload: reservedPayload,
+          },
+          { onConflict: "transaction_reference", ignoreDuplicates: true },
+        );
+      if (orphanLogError) {
+        console.error("[monnify-webhook] reserved-account orphan audit failed", orphanLogError.message);
+        return Response.json({ error: "Audit unavailable" }, { status: 500, headers: corsHeaders });
+      }
+      console.warn("[monnify-webhook] verified payment for unknown or inactive reserved account", { accountReference, transactionReference });
+      return Response.json({ received: true, orphan: true }, { headers: corsHeaders });
+    }
+    if (reservedResult?.duplicate) {
+      return Response.json({ received: true, duplicate: true }, { headers: corsHeaders });
+    }
+    if (reservedResult?.success && reservedResult?.credited) {
+      console.log("[monnify-webhook] reserved-account payment credited", {
+        accountReference,
+        transactionReference,
+        amountPaid: verified.amountPaid,
+      });
+      return Response.json({ received: true, credited: true, new_balance: reservedResult.new_balance }, { headers: corsHeaders });
+    }
+    console.error("[monnify-webhook] unhandled reserved-account result", { code: reservedResult?.code });
+    return Response.json({ error: "Failed to process reserved-account funding" }, { status: 500, headers: corsHeaders });
   }
 
   // 4. Call atomic Monnify processing RPC (single transaction: funding_request lock + amount/trx validation + monnify_events insert + wallet credit)

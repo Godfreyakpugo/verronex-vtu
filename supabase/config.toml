@@ -454,6 +454,11 @@ enabled = true
 verify_jwt = true
 entrypoint = "./functions/init-monnify-funding/index.ts"
 
+[functions.create-monnify-reserved-account]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/create-monnify-reserved-account/index.ts"
+
 [functions.monnify-webhook]
 enabled = true
 verify_jwt = false
